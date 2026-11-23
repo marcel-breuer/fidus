@@ -1,7 +1,8 @@
 from sqlalchemy import func, select
 
 from app.db.models import Task
-from app.db.session import user_session
+from app.db.session import get_sessionmaker, user_session
+from app.services.sessions import purge_expired_sessions
 from app.worker.broker import broker
 
 
@@ -13,3 +14,10 @@ async def count_open_tasks(user_id: str) -> int:
             select(func.count()).select_from(Task).where(Task.done_at.is_(None))
         )
     return int(result or 0)
+
+
+@broker.task(task_name="sessions.purge_expired")
+async def purge_expired_auth_sessions() -> int:
+    """Remove expired sessions; this job has no scheduler wiring yet."""
+    async with get_sessionmaker()() as session, session.begin():
+        return await purge_expired_sessions(session)
