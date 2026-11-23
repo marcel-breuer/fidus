@@ -36,7 +36,7 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 - File attachments on messages (PDF, text, images): not implemented
 - Knowledge: RAG over uploaded files, conversation history search, durable memories and web search are implemented; notes are not
 
-Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete at `/chat/memories`; injected into chat context), conversation history search, web search through a provider interface, numbered citations for file passages, earlier messages and web results, and typed agent tools (`search_knowledge`, `search_conversations`, `web_search`, `remember`, `create_task`). Agent writes ask for confirmation in the chat by default; a per-user setting lets the assistant act without asking. Every agent write is recorded in `audit_log`. Attachments remain unimplemented.
+Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete at `/chat/memories`; injected into chat context), conversation history search, web search through a provider interface, numbered citations for file passages, earlier messages and web results, and typed agent tools (`search_knowledge`, `search_conversations`, `web_search`, `remember`, `create_task`, `create_file`, `update_file`). Agent writes ask for confirmation in the chat by default; a per-user setting lets the assistant act without asking. Every agent write is recorded in `audit_log`. Attachments remain unimplemented.
 
 ### Audio
 - Browser recording (MediaRecorder) and file upload on the audio page; inserting a transcript into a chat message is not implemented

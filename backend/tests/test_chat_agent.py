@@ -322,3 +322,214 @@ async def test_provider_failure_inside_tool_loop_reports_generic_error(
     assert "private upstream detail" not in response.text
     outputs = [m.content for m in chat_provider.requests[1].messages if m.role == "tool"]
     assert "TOOL_FAILED" in outputs[0]
+
+
+async def _file_names(client: httpx.AsyncClient, folder_id: str | None = None) -> list[str]:
+    params = {"parent_id": folder_id} if folder_id else {}
+    return [item["name"] for item in (await client.get("/api/v1/files/nodes", params=params)).json()]
+
+
+async def _propose(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, tool: str, arguments: dict
+) -> dict:
+    chat_provider.rounds = [_round(_call(tool, arguments))]
+    return dict(await _ask(client, await _conversation(client)))["action"]
+
+
+async def test_create_file_waits_for_confirmation_then_stores_version_audit_and_index_job(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_id = await _login(client, "filewriter@example.com")
+    queued: list[str] = []
+
+    async def record(user: str, document_id: str) -> None:
+        queued.append(document_id)
+
+    monkeypatch.setattr("app.services.indexing.enqueue_index_document", record)
+    folder = (await client.post("/api/v1/files/folders", json={"name": "Notes", "parent_id": None})).json()
+    action = await _propose(
+        client, chat_provider, "create_file",
+        {"name": "ideas.md", "content": "# Ideas\nzebra", "folder_id": folder["id"]},
+    )
+    assert action["status"] == "pending"
+    assert await _file_names(client, folder["id"]) == []
+    assert queued == []
+
+    approved = await client.post(f"/api/v1/agent/actions/{action['id']}/approve")
+    assert approved.json()["status"] == "approved"
+    nodes = (await client.get("/api/v1/files/nodes", params={"parent_id": folder["id"]})).json()
+    assert [(n["name"], n["kind"]) for n in nodes] == [("ideas.md", "file")]
+    download = await client.get(f"/api/v1/files/nodes/{nodes[0]['id']}/download")
+    assert download.content == b"# Ideas\nzebra"
+    async with user_session(user_id) as session:
+        document = (await session.scalars(select(Document))).one()
+        entry = (await session.scalars(select(AuditLog))).one()
+    assert document.node_id == nodes[0]["id"] and document.status == "pending"
+    assert queued == [document.id]
+    assert (entry.action, entry.target_type, entry.target_id, entry.actor) == (
+        "agent.create_file", "file", nodes[0]["id"], "agent"
+    )
+    assert "zebra" not in json.dumps(entry.details)
+    assert (await client.post(f"/api/v1/agent/actions/{action['id']}/approve")).status_code == 409
+
+
+async def test_rejected_file_write_changes_nothing(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, memory_storage
+) -> None:
+    user_id = await _login(client, "filereject@example.com")
+    action = await _propose(client, chat_provider, "create_file", {"name": "a.txt", "content": "x"})
+    assert (await client.post(f"/api/v1/agent/actions/{action['id']}/reject")).json()["status"] == "rejected"
+    assert await _file_names(client) == []
+    assert memory_storage.objects == {}
+    async with user_session(user_id) as session:
+        assert (await session.scalars(select(AuditLog))).all() == []
+
+
+async def test_allow_mode_update_file_adds_version_and_queues_indexing(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_id = await _login(client, "fileupdate@example.com")
+    assert (await client.put("/api/v1/agent/settings", json={"write_mode": "allow"})).status_code == 200
+    queued: list[str] = []
+
+    async def record(user: str, document_id: str) -> None:
+        queued.append(document_id)
+
+    monkeypatch.setattr("app.services.indexing.enqueue_index_document", record)
+    node = (await client.post(
+        "/api/v1/files/upload", files={"file": ("todo.txt", b"old", "text/plain")}
+    )).json()
+    chat_provider.rounds = [
+        _round(_call("update_file", {"node_id": node["id"], "content": "new text"})),
+        _round(TextDelta("Saved.")),
+    ]
+    events = await _ask(client, await _conversation(client))
+    assert [(n, d.get("status")) for n, d in events if n == "tool"] == [("tool", "done")]
+    tool_output = chat_provider.requests[1].messages[-1].content
+    assert '"version": 2' in tool_output and node["id"] in tool_output
+    versions = (await client.get(f"/api/v1/files/nodes/{node['id']}/versions")).json()
+    assert [v["version"] for v in versions] == [2, 1]
+    assert (await client.get(f"/api/v1/files/nodes/{node['id']}/download")).content == b"new text"
+    assert (await client.get(f"/api/v1/files/nodes/{node['id']}/download?version=1")).content == b"old"
+    assert len(queued) == 2  # the upload and the agent's new version
+    async with user_session(user_id) as session:
+        entry = (await session.scalars(select(AuditLog))).one()
+    assert (entry.action, entry.target_type, entry.target_id) == ("agent.update_file", "file", node["id"])
+
+
+async def test_file_tools_never_reach_another_users_files_or_folders(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider
+) -> None:
+    await _login(client, "file-a@example.com")
+    folder = (await client.post("/api/v1/files/folders", json={"name": "Private", "parent_id": None})).json()
+    node = (await client.post(
+        "/api/v1/files/upload", files={"file": ("secret.txt", b"mine", "text/plain")}
+    )).json()
+
+    user_b = await _login(client, "file-b@example.com")
+    assert (await client.put("/api/v1/agent/settings", json={"write_mode": "allow"})).status_code == 200
+    chat_provider.rounds = [
+        _round(
+            _call("update_file", {"node_id": node["id"], "content": "overwritten"}, "c1"),
+            _call("create_file", {"name": "x.txt", "content": "x", "folder_id": folder["id"]}, "c2"),
+        ),
+        _round(TextDelta("done")),
+    ]
+    events = await _ask(client, await _conversation(client))
+    assert [d["status"] for n, d in events if n == "tool"] == ["error", "error"]
+    tool_messages = [m.content for m in chat_provider.requests[-1].messages if m.role == "tool"]
+    assert "NODE_NOT_FOUND" in tool_messages[0] and "PARENT_NOT_FOUND" in tool_messages[1]
+    assert await _file_names(client) == []
+
+    await _login(client, "file-a@example.com")
+    versions = (await client.get(f"/api/v1/files/nodes/{node['id']}/versions")).json()
+    assert [v["version"] for v in versions] == [1]
+    assert await _file_names(client, folder["id"]) == []
+    async with user_session(user_b) as session:
+        assert (await session.scalars(select(AuditLog))).all() == []
+
+
+async def test_other_user_cannot_approve_a_pending_file_write(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider
+) -> None:
+    await _login(client, "file-owner@example.com")
+    action = await _propose(client, chat_provider, "create_file", {"name": "a.md", "content": "x"})
+    await _login(client, "file-intruder@example.com")
+    assert (await client.post(f"/api/v1/agent/actions/{action['id']}/approve")).status_code == 404
+    await _login(client, "file-owner@example.com")
+    assert await _file_names(client) == []
+
+
+@pytest.mark.parametrize(
+    ("arguments", "code"),
+    [
+        ({"name": "report.pdf", "content": "x"}, "UNSUPPORTED_TYPE"),
+        ({"name": "noextension", "content": "x"}, "UNSUPPORTED_TYPE"),
+        ({"name": "../escape.md", "content": "x"}, "INVALID_NAME"),
+        ({"name": "sub/dir.md", "content": "x"}, "INVALID_NAME"),
+        ({"name": "..\\escape.md", "content": "x"}, "INVALID_NAME"),
+        ({"name": "taken.md", "content": "x"}, "NAME_CONFLICT"),
+        ({"name": "nul.txt", "content": "a\x00b"}, "UNSUPPORTED_TYPE"),
+    ],
+)
+async def test_create_file_rejects_unsafe_or_conflicting_input(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, memory_storage, arguments: dict, code: str
+) -> None:
+    await _login(client, "filevalid@example.com")
+    assert (await client.put("/api/v1/agent/settings", json={"write_mode": "allow"})).status_code == 200
+    await client.post("/api/v1/files/upload", files={"file": ("taken.md", b"keep", "text/markdown")})
+    stored = dict(memory_storage.objects)
+    chat_provider.rounds = [_round(_call("create_file", arguments)), _round(TextDelta("no"))]
+    events = await _ask(client, await _conversation(client))
+    assert [d["status"] for n, d in events if n == "tool"] == ["error"]
+    assert code in chat_provider.requests[1].messages[-1].content
+    assert memory_storage.objects == stored
+    assert await _file_names(client) == ["taken.md"]
+
+
+async def test_file_tools_enforce_size_limit_and_text_only_updates(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _login(client, "filelimits@example.com")
+    assert (await client.put("/api/v1/agent/settings", json={"write_mode": "allow"})).status_code == 200
+    monkeypatch.setattr("app.services.files.MAX_UPLOAD_BYTES", 10)
+    pdf = (await client.post(
+        "/api/v1/files/upload", files={"file": ("doc.pdf", b"%PDF-1.4 x", "application/pdf")}
+    )).json()
+    chat_provider.rounds = [
+        _round(
+            _call("create_file", {"name": "big.txt", "content": "x" * 11}, "c1"),
+            _call("update_file", {"node_id": pdf["id"], "content": "text"}, "c2"),
+        ),
+        _round(TextDelta("no")),
+    ]
+    await _ask(client, await _conversation(client))
+    outputs = [m.content for m in chat_provider.requests[-1].messages if m.role == "tool"]
+    assert "FILE_TOO_LARGE" in outputs[0] and "UNSUPPORTED_TYPE" in outputs[1]
+    assert await _file_names(client) == ["doc.pdf"]
+    versions = (await client.get(f"/api/v1/files/nodes/{pdf['id']}/versions")).json()
+    assert [v["version"] for v in versions] == [1]
+
+
+async def test_file_tools_follow_files_module_enablement(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider, owner_engine
+) -> None:
+    await _login(client, "filemodule@example.com")
+    chat_provider.rounds = [_round(TextDelta("ok"))]
+    await _ask(client, await _conversation(client))
+    assert {"create_file", "update_file"} <= {tool.name for tool in chat_provider.requests[0].tools}
+    chat_provider.requests.clear()
+
+    action = await _propose(client, chat_provider, "create_file", {"name": "late.md", "content": "x"})
+    async with owner_engine.begin() as connection:
+        await connection.exec_driver_sql("INSERT INTO module_settings (module_key, enabled) VALUES ('files', false)")
+    try:
+        chat_provider.requests.clear()
+        chat_provider.rounds = [_round(TextDelta("ok"))]
+        await _ask(client, await _conversation(client))
+        assert not {"create_file", "update_file"} & {tool.name for tool in chat_provider.requests[-1].tools}
+        assert (await client.post(f"/api/v1/agent/actions/{action['id']}/approve")).json()["status"] == "failed"
+    finally:
+        async with owner_engine.begin() as connection:
+            await connection.exec_driver_sql("DELETE FROM module_settings WHERE module_key = 'files'")
+    assert await _file_names(client) == []

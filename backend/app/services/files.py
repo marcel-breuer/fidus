@@ -210,6 +210,56 @@ async def upload_file(
         raise
 
 
+TEXT_EXTENSIONS = {".txt", ".md", ".markdown"}
+
+
+def _text_extension(name: str) -> str:
+    return ("." + name.rsplit(".", 1)[-1]).lower() if "." in name else ""
+
+
+async def _text_chunks(content: str) -> AsyncIterator[bytes]:
+    yield content.encode("utf-8")
+
+
+async def create_text_file(
+    session: AsyncSession, storage: Storage, user: User, parent_id: str | None, name: str, content: str
+) -> tuple[Node, FileVersion]:
+    """Create a new text file for the agent. Unlike an upload, an existing name is a conflict."""
+    if "/" in name or "\\" in name:
+        raise FilesError("INVALID_NAME")
+    clean = sanitize_name(name)
+    if _text_extension(clean) not in TEXT_EXTENSIONS:
+        raise FilesError("UNSUPPORTED_TYPE")
+    await _parent(session, user, parent_id)
+    taken = await session.scalar(
+        select(Node.id).where(
+            Node.user_id == user.id,
+            Node.parent_id.is_(None) if parent_id is None else Node.parent_id == parent_id,
+            Node.name == clean,
+            Node.deleted_at.is_(None),
+        )
+    )
+    if taken is not None:
+        raise FilesError("NAME_CONFLICT")
+    return await upload_file(session, storage, user, parent_id, clean, _text_chunks(content))
+
+
+async def update_text_file(
+    session: AsyncSession, storage: Storage, user: User, node_id: str, content: str
+) -> tuple[Node, FileVersion]:
+    """Store a new version of one of the user's text files; the name and place stay unchanged."""
+    node = await session.scalar(
+        select(Node).where(
+            Node.id == node_id, Node.user_id == user.id, Node.kind == "file", Node.deleted_at.is_(None)
+        )
+    )
+    if node is None:
+        raise FilesError("NODE_NOT_FOUND")
+    if _text_extension(node.name) not in TEXT_EXTENSIONS:
+        raise FilesError("UNSUPPORTED_TYPE")
+    return await upload_file(session, storage, user, node.parent_id, node.name, _text_chunks(content))
+
+
 async def rename_or_move(
     session: AsyncSession,
     user: User,
