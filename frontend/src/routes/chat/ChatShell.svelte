@@ -13,13 +13,16 @@
 		type Conversation,
 		type StreamEvent
 	} from '$lib/api/chat';
+	import { actionSummary, decideAction, listActions, parseSources, safeHref, type AgentAction } from '$lib/api/agent';
 	import { renderMarkdown } from '$lib/markdown';
 	import { getT } from '$lib/i18n/context';
+	import { messages as catalogs, type MessageKey } from '$lib/i18n';
 	import { Alert, Button } from '$lib/ui';
 
 	let { conversationId = null }: { conversationId?: string | null } = $props();
 	const t = getT();
-	type DisplayMessage = Pick<ChatMessage, 'id' | 'role' | 'content' | 'created_at'>;
+	const messagesCatalog = catalogs.en;
+	type DisplayMessage = Pick<ChatMessage, 'id' | 'role' | 'content' | 'created_at' | 'citations'>;
 	let conversations = $state<Conversation[]>([]);
 	let messages = $state<DisplayMessage[]>([]);
 	let activeId = $state<string | null>(conversationId);
@@ -30,6 +33,11 @@
 	let renamingId = $state<string | null>(null);
 	let renameValue = $state('');
 	let busyId = $state('');
+	let actions = $state<AgentAction[]>([]);
+	let activeTool = $state('');
+	let toolFailed = $state('');
+	let actionFailed = $state(false);
+	let streamSources: unknown[] = [];
 	let controller: AbortController | null = null;
 	let lastSubmitted = $state('');
 	let shouldFollow = true;
@@ -44,7 +52,10 @@
 		failed = false;
 		try {
 			conversations = await listConversations();
-			if (activeId) messages = await listMessages(activeId);
+			if (activeId) {
+				messages = await listMessages(activeId);
+				actions = await listActions(activeId);
+			}
 		} catch {
 			failed = true;
 		} finally {
@@ -57,6 +68,7 @@
 			initialId = conversationId;
 			activeId = conversationId;
 			messages = [];
+			actions = [];
 			if (conversationId) void load();
 		}
 	});
@@ -78,6 +90,7 @@
 		if (streaming) return;
 		activeId = null;
 		messages = [];
+		actions = [];
 		failed = false;
 		await goto('/chat');
 		await tick();
@@ -120,24 +133,45 @@
 	function handleEvent(event: StreamEvent) {
 		if (event.event === 'message') {
 			messages = [...messages, event.data];
+		} else if (event.event === 'tool') {
+			activeTool = event.data.status === 'running' ? event.data.name : '';
+			toolFailed = event.data.status === 'error' ? event.data.name : toolFailed;
+		} else if (event.event === 'citations') {
+			streamSources = event.data.items;
+		} else if (event.event === 'action') {
+			actions = [...actions, {
+				id: event.data.id,
+				conversation_id: activeId ?? '',
+				message_id: null,
+				tool: event.data.tool,
+				arguments: event.data.arguments,
+				status: 'pending',
+				created_at: new Date().toISOString(),
+				decided_at: null
+			}];
 		} else if (event.event === 'delta') {
+			activeTool = '';
 			let assistant = messages.find((message) => message.id === 'streaming-assistant');
 			if (!assistant) {
-				assistant = { id: 'streaming-assistant', role: 'assistant', content: '', created_at: new Date().toISOString() };
+				assistant = { id: 'streaming-assistant', role: 'assistant', content: '', created_at: new Date().toISOString(), citations: null };
 				messages = [...messages, assistant];
 			}
 			messages = messages.map((message) => message.id === 'streaming-assistant'
 				? { ...message, content: message.content + event.data.text } : message);
 		} else if (event.event === 'done') {
+			activeTool = '';
+			const doneId = event.data.message_id;
+			actions = actions.map((item) => item.message_id === null ? { ...item, message_id: doneId } : item);
 			if (messages.some((message) => message.id === 'streaming-assistant')) {
 				messages = messages.map((message) => message.id === 'streaming-assistant'
-					? { ...message, id: event.data.message_id } : message);
+					? { ...message, id: event.data.message_id, citations: streamSources } : message);
 			} else {
 				messages = [...messages, {
 					id: event.data.message_id,
 					role: 'assistant',
 					content: '',
-					created_at: new Date().toISOString()
+					created_at: new Date().toISOString(),
+					citations: streamSources
 				}];
 			}
 			conversations = conversations.map((item) => item.id === activeId
@@ -152,6 +186,10 @@
 		const text = content.trim();
 		if (!text || streaming) return;
 		failed = false;
+		toolFailed = '';
+		actionFailed = false;
+		streamSources = [];
+		activeTool = '';
 		lastSubmitted = text;
 		draft = '';
 		streaming = true;
@@ -192,6 +230,25 @@
 	}
 
 	function stop() { controller?.abort(); }
+
+	async function decide(action: AgentAction, approve: boolean) {
+		busyId = action.id;
+		actionFailed = false;
+		try {
+			const updated = await decideAction(action.id, approve);
+			actions = actions.map((item) => item.id === action.id ? updated : item);
+		} catch { actionFailed = true; }
+		finally { busyId = ''; }
+	}
+
+	function toolLabel(name: string): string {
+		const key = `chat.tool.${name}`;
+		return key in messagesCatalog ? t(key as MessageKey) : name;
+	}
+
+	function statusLabel(status: AgentAction['status']): string {
+		return t(`chat.action${status[0].toUpperCase()}${status.slice(1)}` as MessageKey);
+	}
 </script>
 
 <svelte:head><title>{t('chat.title')} · {t('app.name')}</title></svelte:head>
@@ -200,6 +257,7 @@
 		<div class="list-heading">
 			<h1>{t('chat.conversations')}</h1>
 			<Button variant="quiet" onclick={startNew} disabled={streaming}>{t('chat.new')}</Button>
+			<a class="memory-link" href="/chat/memories">{t('chat.memoryLink')}</a>
 		</div>
 		{#if loading}
 			<p class="muted">{t('common.loading')}</p>
@@ -243,15 +301,60 @@
 				{#each messages as message (message.id)}
 					<article class="message" class:user-message={message.role === 'user'}>
 						<p class="speaker">{message.role === 'user' ? t('chat.user') : t('chat.assistant')}</p>
-						<div class="bubble glass-inset" aria-live={message.id === 'streaming-assistant' ? 'polite' : undefined}>
-							{@html renderMarkdown(message.content)}
-						</div>
+						{#if message.content || message.role === 'user'}
+							<div class="bubble glass-inset" aria-live={message.id === 'streaming-assistant' ? 'polite' : undefined}>
+								{@html renderMarkdown(message.content)}
+							</div>
+						{/if}
+						{#if message.role === 'assistant'}
+							{@const sources = parseSources(message.citations)}
+							{#if sources.length}
+								<div class="sources">
+									<p class="speaker">{t('chat.sources')}</p>
+									<ol>
+										{#each sources as source (source.ref)}
+											<li value={source.ref}>
+												{#if source.type === 'web'}
+													{@const href = safeHref(source.url)}
+													<span class="kind">{t('chat.sourceWeb')}</span>
+													{#if href}<a {href} target="_blank" rel="noopener noreferrer">{source.title}</a>{:else}{source.title}{/if}
+												{:else if source.type === 'file'}
+													<span class="kind">{t('chat.sourceFile')}</span>
+													<a href="/files">{t('chat.sourceFilePassage', { name: source.file_name, position: source.position + 1, version: source.version })}</a>
+													<span class="snippet">{source.snippet}</span>
+												{:else}
+													<span class="kind">{t('chat.sourceConversation')}</span>
+													<a href="/chat/{source.conversation_id}">{source.snippet}</a>
+												{/if}
+											</li>
+										{/each}
+									</ol>
+								</div>
+							{/if}
+							{#each actions.filter((item) => item.message_id === message.id) as action (action.id)}
+								<div class="action glass-inset" role="group" aria-label={t('chat.actionTitle')}>
+									<p class="speaker">{t('chat.actionTitle')}</p>
+									<p><strong>{toolLabel(action.tool)}</strong>: {actionSummary(action)}</p>
+									{#if action.status === 'pending'}
+										<div class="composer-actions">
+											<Button type="button" disabled={busyId === action.id} onclick={() => void decide(action, true)}>{t('chat.actionApprove')}</Button>
+											<Button type="button" variant="quiet" disabled={busyId === action.id} onclick={() => void decide(action, false)}>{t('chat.actionReject')}</Button>
+										</div>
+									{:else}
+										<p class="speaker" role="status">{statusLabel(action.status)}</p>
+									{/if}
+								</div>
+							{/each}
+						{/if}
 					</article>
 				{/each}
 			</div>
 		{/if}
 		<form class="composer" onsubmit={submit}>
 			{#if failed}<Alert>{t('chat.error')}</Alert>{/if}
+			{#if actionFailed}<Alert>{t('chat.actionError')}</Alert>{/if}
+			{#if toolFailed && !streaming}<p class="speaker" role="status">{t('chat.toolError', { tool: toolLabel(toolFailed) })}</p>{/if}
+			{#if activeTool}<p class="speaker" role="status">{t('chat.toolRunning', { tool: toolLabel(activeTool) })}</p>{/if}
 			<label class="visually-hidden" for="chat-composer">{t('chat.composer')}</label>
 			<textarea id="chat-composer" bind:this={composer} bind:value={draft} class="glass-control" rows="3" maxlength="20000" placeholder={t('chat.placeholder')} disabled={streaming} onkeydown={composerKeydown}></textarea>
 			<div class="composer-actions">
@@ -293,6 +396,13 @@
 	.bubble :global(p:last-child) { margin-bottom: 0; }
 	.bubble :global(pre) { overflow: auto; padding: 0.75rem; border-radius: 0.5rem; background: rgb(0 0 0 / 0.08); }
 	.bubble :global(code) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+	.memory-link { font-size: 0.85rem; color: var(--accent-text); }
+	.sources, .action { margin-top: 0.5rem; }
+	.sources ol { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.3rem; font-size: 0.85rem; overflow-wrap: anywhere; }
+	.sources .kind { color: var(--muted); margin-right: 0.35rem; }
+	.sources .snippet { display: block; color: var(--muted); }
+	.action { padding: 0.7rem 1rem; display: grid; gap: 0.4rem; }
+	.action p { margin: 0; }
 	.empty-state { color: var(--muted); margin: auto; text-align: center; }
 	.composer { display: grid; gap: 0.5rem; }
 	textarea { width: 100%; resize: vertical; padding: 0.7rem; font: inherit; }

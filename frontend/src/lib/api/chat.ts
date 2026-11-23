@@ -51,6 +51,9 @@ export async function listMessages(id: string): Promise<ChatMessage[]> {
 export type StreamEvent =
 	| { event: 'message'; data: ChatMessage }
 	| { event: 'delta'; data: { text: string } }
+	| { event: 'tool'; data: { name: string; status: 'running' | 'done' | 'error' | 'awaiting_confirmation' } }
+	| { event: 'citations'; data: { items: unknown[] } }
+	| { event: 'action'; data: { id: string; tool: string; arguments: Record<string, unknown>; status: string } }
 	| { event: 'done'; data: { message_id: string; title: string } }
 	| { event: 'error'; data: { code: string } };
 

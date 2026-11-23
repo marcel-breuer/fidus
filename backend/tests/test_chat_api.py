@@ -89,7 +89,9 @@ async def test_chat_turn_persists_messages_usage_history_and_title(
         ("assistant", "Earlier answer"),
         ("user", "  Help me   plan this  "),
     ]
-    assert request.tools == []
+    assert {tool.name for tool in request.tools} == {
+        "search_knowledge", "search_conversations", "web_search", "remember", "create_task"
+    }
 
 
 async def test_chat_history_budget_keeps_newest_messages(client: httpx.AsyncClient) -> None:

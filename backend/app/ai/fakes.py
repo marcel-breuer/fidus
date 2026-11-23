@@ -4,7 +4,7 @@ import re
 from collections.abc import AsyncIterator, Iterable
 
 from app.ai.config import get_model_config
-from app.ai.providers import ChatEvent, ChatRequest
+from app.ai.providers import ChatEvent, ChatRequest, WebSearchResult, WebSource
 
 
 class FakeChatProvider:
@@ -17,6 +17,31 @@ class FakeChatProvider:
         for reply in self.replies:
             if isinstance(reply, Exception):
                 raise reply
+            yield reply
+
+
+class FakeWebSearchProvider:
+    def __init__(self, result: WebSearchResult | None = None) -> None:
+        self.result = result or WebSearchResult(
+            answer="Fake web answer.", sources=[WebSource(title="Example", url="https://example.com/a")]
+        )
+        self.queries: list[str] = []
+
+    async def search(self, query: str) -> WebSearchResult:
+        self.queries.append(query)
+        return self.result
+
+
+class SequencedChatProvider:
+    """Plays one scripted reply per model call, for multi-round tool loops."""
+
+    def __init__(self, rounds: Iterable[Iterable[ChatEvent]]) -> None:
+        self.rounds = [tuple(item) for item in rounds]
+        self.requests: list[ChatRequest] = []
+
+    async def stream(self, request: ChatRequest) -> AsyncIterator[ChatEvent]:
+        self.requests.append(request)
+        for reply in self.rounds[len(self.requests) - 1]:
             yield reply
 
 
