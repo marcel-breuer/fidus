@@ -10,5 +10,17 @@ from app.db.session import user_session
 
 async def get_user_scoped_session(user: User = Depends(current_active_user)) -> AsyncIterator[AsyncSession]:
     """Session whose transaction runs with app.user_id set to the authenticated user."""
-    async with user_session(user.id) as session:
-        yield session
+    session: AsyncSession | None = None
+    try:
+        async with user_session(user.id) as session:
+            yield session
+    except BaseException:
+        if session is not None:
+            pending = session.info.pop("file_storage_cleanup", [])
+            for storage, key in pending:
+                if await storage.exists(key):
+                    await storage.delete(key)
+        raise
+    else:
+        if session is not None:
+            session.info.pop("file_storage_cleanup", None)

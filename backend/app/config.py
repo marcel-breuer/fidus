@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     app_db_password: str = "change-me"
 
     redis_url: str = "redis://redis:6379/0"
+    storage_path: str = "/data/files"
 
     secret_key: str = Field(default="change-me", min_length=8)
     app_url: str = "http://localhost:8080"

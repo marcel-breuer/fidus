@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, ProgrammingError
 
 from app.config import get_settings
-from app.db.models import Task
+from app.db.models import FileVersion, Node, Task
 from app.db.session import system_session, user_session
 from app.worker.broker import broker
 from app.worker.tasks import count_open_tasks
@@ -41,6 +41,21 @@ async def test_no_context_returns_no_rows(two_users) -> None:
     await _add_task(a, "mine")
     async with system_session() as session:
         assert (await session.scalars(text("SELECT id FROM tasks"))).all() == []
+
+
+async def test_files_tables_return_no_rows_without_context(two_users) -> None:
+    a, _ = two_users
+    async with user_session(a) as session:
+        node = Node(user_id=a, kind="file", name="private.txt")
+        session.add(node)
+        await session.flush()
+        session.add(FileVersion(
+            user_id=a, node_id=node.id, version=1, storage_key=f"{a}/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            size_bytes=4, mime_type="text/plain", sha256="a" * 64,
+        ))
+    async with system_session() as session:
+        assert (await session.scalars(text("SELECT id FROM nodes"))).all() == []
+        assert (await session.scalars(text("SELECT id FROM file_versions"))).all() == []
 
 
 async def test_user_reads_only_own_rows(two_users) -> None:
@@ -145,6 +160,17 @@ async def test_rls_is_forced_on_user_owned_tables(owner_engine) -> None:
             )
         ).one()
     assert tuple(row) == (True, True)
+
+
+async def test_files_rls_is_forced(owner_engine) -> None:
+    async with owner_engine.connect() as conn:
+        rows = (await conn.execute(
+            text(
+                "SELECT relrowsecurity, relforcerowsecurity FROM pg_class "
+                "WHERE relname IN ('nodes', 'file_versions') ORDER BY relname"
+            )
+        )).all()
+    assert rows == [(True, True), (True, True)]
 
 
 async def test_application_role_does_not_own_tables(owner_engine) -> None:

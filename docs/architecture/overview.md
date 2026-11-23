@@ -1,6 +1,6 @@
 # Fidus — Architecture Overview
 
-Status: the scaffold, the tasks module with in-app reminders and the Stage 1 chat backend foundation are implemented. Other chat capabilities, files, audio, tokens, the MCP server and everything else below remain design only. Update this file together with the code.
+Status: the scaffold, the tasks module with in-app reminders, the Stage 1 chat backend foundation and Files Stage 1 are implemented. Other chat capabilities, Files Stage 2, audio, tokens and the MCP server remain design only. Update this file together with the code.
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `scheduler`, `db`, `redis` and the one-shot `migrate` service that `backend`, `worker` and `scheduler` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API); the scheduler only needs Redis on `internal`.
@@ -8,12 +8,13 @@ Status: the scaffold, the tasks module with in-app reminders and the Stage 1 cha
 - Login and registration are rate limited by client IP and account identifier using Redis fixed-window counters (`AUTH_RATE_LIMIT_ATTEMPTS`, `AUTH_RATE_LIMIT_WINDOW_SECONDS`). Identifiers are salted and hashed before becoming Redis keys. If Redis is unavailable, authentication fails open and a generic warning is logged so an outage does not prevent sign-in; this means rate limits are temporarily unavailable during that outage.
 - The gateway trusts forwarded client addresses only from IPs/CIDRs in `TRUSTED_PROXIES` (empty by default). It rewrites `X-Real-IP` and `X-Forwarded-For` to the resolved client address. The backend does not enable Uvicorn proxy-header handling; the auth rate limiter accepts `X-Real-IP` only when its direct peer is a private or loopback address.
 - Not implemented yet: API tokens, OAuth, and user management screens.
-- Row-level security: `users` and `sessions` are intentionally not row-level-secured, because authentication has to look them up before any user context exists. The application role may only select, insert and update `users`, and only select, insert and delete `sessions`. `tasks`, `reminders` and `invitations` are user-owned tables with forced policies. `module_settings` is instance-wide, has no `user_id` and intentionally no RLS policy; the application role may select, insert and update it. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic. The reviewed SECURITY DEFINER exception `users_with_due_tasks(now)` returns only user ids for the reminder worker; PUBLIC execution is revoked and only the application role can execute it.
+- Row-level security: `users` and `sessions` are intentionally not row-level-secured, because authentication has to look them up before any user context exists. The application role may only select, insert and update `users`, and only select, insert and delete `sessions`. `tasks`, `reminders`, `invitations`, `nodes` and `file_versions` are user-owned tables with forced policies. `module_settings` is instance-wide, has no `user_id` and intentionally no RLS policy; the application role may select, insert and update it. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic. The reviewed SECURITY DEFINER exception `users_with_due_tasks(now)` returns only user ids for the reminder worker; PUBLIC execution is revoked and only the application role can execute it.
 - Worker: taskiq with a Redis list broker, same image as the backend. `reminders.mark_due` runs every minute, finds users through the narrowly scoped `users_with_due_tasks` function, checks task module enablement, materializes reminders in each user's RLS context and publishes reminder ids to that user's Redis channel. `tasks.count_open` remains an example job. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
 - Scheduler: Taskiq's label schedule source reads recurring jobs from the same backend image and Redis broker. Its healthcheck verifies that the scheduler command is still running as PID 1.
-- Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint; task APIs and the reminder worker enforce module enablement. Chat and files remain placeholders without services. Disabling a module leaves its data untouched.
+- Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint; task APIs, file APIs and the reminder worker enforce module enablement. Chat completion and Files Stage 2 remain unimplemented. Disabling a module leaves its data untouched.
 - Tasks and reminders: task CRUD, completion/reopen, soft delete and user-scoped reminder operations are implemented in shared services behind REST adapters. The task page provides localized task entry, filtering, editing and completion. The reminder banner loads active reminders and receives refreshed lists over per-user Redis-backed SSE; the stream uses short-lived user sessions and releases its Redis subscription on disconnect.
 - Chat Stage 1 (`Refs #18`): fixed model configuration is loaded from `backend/app/ai/models.toml`; a provider interface and OpenAI chat provider are present. User-owned `conversations` and `messages` tables have forced RLS, and REST routes provide conversation CRUD, message listing and full-text message search. Streaming/chat completion endpoint, memory, web search, attachments and agent tools are **not implemented yet**. Frontend work remains pending; `frontend/openapi.json` and the generated `schema.d.ts` need regenerating for these routes.
+- Files Stage 1 (`Refs #19`): user-owned `nodes` and `file_versions` have forced RLS. The `files_data` named volume is mounted at `/data/files` for backend and worker and accessed through a local storage interface; REST routes support folders, streamed uploads, rename/move, soft deletion, version lists and attachment downloads. The browser supports folder navigation, upload progress, rename, delete, download and version display. No text extraction, embedding, search or S3 adapter is implemented. `frontend/openapi.json` and generated `schema.d.ts` need regeneration for the new API routes.
 - Frontend: SvelteKit with adapter-node, server-side load of the user and modules, a generated OpenAPI type schema used by a shared `openapi-fetch` client, German and English catalogs with a typed key set.
 
 
@@ -68,7 +69,7 @@ flowchart LR
 | Backend | REST API, SSE streaming, MCP endpoint, auth, services | FastAPI, SQLAlchemy async, Alembic |
 | Worker | Transcription, text extraction, chunking, embedding, reindexing, reminder scheduling | same codebase as backend, separate process (taskiq on Redis) |
 | Database | Relational data, full-text search, vectors | PostgreSQL + pgvector |
-| File storage | User files, uploaded audio, attachments | local volume behind a storage interface; S3-compatible adapter later |
+| File storage | User files, uploaded audio, attachments | local `files_data` volume behind a storage interface; S3-compatible adapter later |
 | Job queue and cache | Durable background jobs, rate-limit counters, short-lived cache | Redis |
 
 Only the gateway publishes a host port. Frontend, backend, worker, database, Redis and storage live on internal networks.
@@ -122,6 +123,7 @@ The embedding dimension is fixed in the config file; changing the embedding mode
 - Memory: the conversation history is searchable; durable facts are stored as `memories` that the user can view, edit and delete.
 
 ## 8. Knowledge pipeline (RAG)
+Files Stage 1 (`Refs #19`) stores uploaded versions and provides the browser and download paths. It does not queue indexing jobs. The following extraction, embedding and retrieval pipeline is planned for Stage 2 and is not implemented yet.
 1. Ingest: upload or agent-created file is stored, a `file_version` row is created, a job is queued.
 2. Extract: text extraction per type (plain text, Markdown, PDF, DOCX, images later); failures are visible in the UI.
 3. Chunk and embed: chunking with overlap, embeddings via the provider interface, rows in `chunks`.
@@ -144,6 +146,7 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 ## 11. REST API
 - Prefix `/api/v1`, OpenAPI generated from the code, TypeScript types generated from the schema and consumed by a shared `openapi-fetch` client for browser and server requests.
 - Tasks REST operations: `POST/GET /tasks`, `GET/PATCH/DELETE /tasks/{id}`, `POST /tasks/{id}/complete`, `POST /tasks/{id}/reopen`, `GET /reminders`, `POST /reminders/{id}/dismiss`, and `GET /reminders/stream`. All are authenticated and gated by tasks-module enablement.
+- Files Stage 1 (`Refs #19`): `GET /files/nodes`, `POST /files/folders`, `POST /files/upload`, `PATCH/DELETE /files/nodes/{id}`, `GET /files/nodes/{id}/download`, and `GET /files/nodes/{id}/versions`. Routes are authenticated and gated by files-module enablement; upload and node reads are user-scoped.
 - Cursor pagination, consistent error shape, idempotency keys for create operations, request ids in responses and logs.
 - Change feed for later offline clients: list endpoints support `updated_since` and tombstones (`deleted_at`). Sync itself is out of scope for the MVP.
 
@@ -156,7 +159,7 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 ## 13. Modules
 - Registry in the backend declares `key`, name key (i18n), icon, routes, required scopes, dependencies (none unconditional). The sidebar is generated from enabled entries in `GET /api/v1/modules` for the current user.
 - Instance-wide enablement is stored in the non-user-owned `module_settings` table and managed by admins through `/admin` and `/api/v1/admin/modules`; a missing row means enabled. Per-user visibility follows scopes. API route dependencies and worker jobs enforce disabled state, and module data remains untouched. The reminder worker calls `ensure_module_enabled("tasks")` before work.
-- Initial modules: chat, files, tasks. Later: calendar and others as additional modules.
+- Initial modules: chat, files, tasks. Files Stage 1 (`Refs #19`) supplies the folder browser, versioned uploads and downloads. Later: calendar and others as additional modules.
 
 ## 14. Deployment topologies
 | Topology | Description |
@@ -164,12 +167,12 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 | Local | `./start.sh`: Docker Compose, gateway on `localhost:${APP_PORT}`, secrets generated into `.env` |
 | Own server or web hosting | The same Docker Compose configuration, behind TLS (external reverse proxy forwarding to the Nginx gateway, or certificates mounted into the gateway). Config: `APP_URL`, `COOKIE_SECURE=true`, trusted proxy list. A hosting environment without Docker is not supported |
 
-Operations: health endpoints (`/health`, `/api/v1/health`), structured JSON logs without sensitive content, backup runbook (`pg_dump` plus file volume), upgrade and rollback as in `docs/releases.md`, migrations run by a one-shot service before the backend starts. Set `TRUSTED_PROXIES` to the comma-separated IPs/CIDRs of the reverse proxy hops that connect to the gateway; leave it empty when no upstream proxy is used. Nginx applies recursive `X-Forwarded-For` resolution only to those trusted hops and forwards the resolved address as a single value. The backend rate limiter trusts `X-Real-IP` only from its private Docker-network peer.
+Operations: health endpoints (`/health`, `/api/v1/health`), structured JSON logs without sensitive content, backups must include `pg_dump` and the `files_data` named volume because it holds user file blobs, upgrade and rollback as in `docs/releases.md`, migrations run by a one-shot service before the backend starts. Set `TRUSTED_PROXIES` to the comma-separated IPs/CIDRs of the reverse proxy hops that connect to the gateway; leave it empty when no upstream proxy is used. Nginx applies recursive `X-Forwarded-For` resolution only to those trusted hops and forwards the resolved address as a single value. The backend rate limiter trusts `X-Real-IP` only from its private Docker-network peer.
 
 ## 15. Security summary
 - Data separation by `user_id` in every repository call and by PostgreSQL row-level security, tested with cross-user negative tests.
 - Secrets only in environment variables; tokens stored hashed; the OpenAI key never reaches the browser.
-- Upload validation (type, size, filename), isolated text extraction, no execution of uploaded content.
+- Upload validation checks type, size and filename; uploaded content is never executed. Text extraction is not implemented yet and will treat content as untrusted when added.
 - Prompt-injection posture: retrieved and fetched content is untrusted; write tools need approval by default; tools are typed and registered, no raw SQL or shell.
 - Audit log for agent writes, token creation and administrative actions.
 
