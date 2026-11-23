@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi_users.db import SQLAlchemyBaseUserTable
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, new_id
@@ -17,7 +17,7 @@ class User(SQLAlchemyBaseUserTable[str], TimestampMixin, Base):
 
 
 class Task(TimestampMixin, Base):
-    """Example user-owned table proving the row-level-security pattern."""
+    """A user-owned to-do item with optional due and reminder times."""
 
     __tablename__ = "tasks"
 
@@ -26,8 +26,29 @@ class Task(TimestampMixin, Base):
         String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     remind_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Reminder(TimestampMixin, Base):
+    __tablename__ = "reminders"
+    __table_args__ = (
+        CheckConstraint("state IN ('pending', 'shown', 'dismissed')", name="reminder_state"),
+        UniqueConstraint("task_id", "due_at", name="uq_reminders_task_id_due_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    task_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("tasks.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")
 
 
 class Invitation(TimestampMixin, Base):

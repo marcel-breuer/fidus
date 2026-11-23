@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security with an example `tasks` table, worker with an example job, German and English UI shell. Everything under "MVP scope" below is still to build; see [architecture/overview.md](architecture/overview.md) section 0 for the details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, and the Tasks module with in-app reminders. Chat, files, audio, tokens and MCP under "MVP scope" below remain to build; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -47,8 +47,9 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 - Content feeds the RAG index
 
 ### Tasks module
-- To-do list with due date and in-app reminder (`remind_at`)
-- Due reminders are surfaced in the UI
+- Implemented: user-scoped tasks with notes, due date, reminder time, completion/reopen, soft deletion and open/done/all filtering.
+- Implemented: persistent in-app reminders surfaced in the localized UI and dismissible by the user.
+- No e-mail or push reminders.
 
 ### API and MCP
 - Every capability is a typed service operation exposed through REST, the chat agent and MCP

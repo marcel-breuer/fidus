@@ -1,6 +1,6 @@
 # Fidus — Architecture Overview
 
-Status: the scaffold is implemented (Compose stack, auth, module registry, row-level security, worker, web shell). Chat, files, tasks, audio, tokens, the MCP server and everything else below are design only. Update this file together with the code.
+Status: the scaffold, tasks module and in-app reminder flow are implemented. Chat, files, audio, tokens, the MCP server and the other items below remain design only unless noted.
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `scheduler`, `db`, `redis` and the one-shot `migrate` service that `backend`, `worker` and `scheduler` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API); the scheduler only needs Redis on `internal`.
@@ -8,10 +8,11 @@ Status: the scaffold is implemented (Compose stack, auth, module registry, row-l
 - Login and registration are rate limited by client IP and account identifier using Redis fixed-window counters (`AUTH_RATE_LIMIT_ATTEMPTS`, `AUTH_RATE_LIMIT_WINDOW_SECONDS`). Identifiers are salted and hashed before becoming Redis keys. If Redis is unavailable, authentication fails open and a generic warning is logged so an outage does not prevent sign-in; this means rate limits are temporarily unavailable during that outage.
 - The gateway trusts forwarded client addresses only from IPs/CIDRs in `TRUSTED_PROXIES` (empty by default). It rewrites `X-Real-IP` and `X-Forwarded-For` to the resolved client address. The backend does not enable Uvicorn proxy-header handling; the auth rate limiter accepts `X-Real-IP` only when its direct peer is a private or loopback address.
 - Not implemented yet: API tokens, OAuth, and user management screens.
-- Row-level security: `users` and `sessions` are intentionally not row-level-secured, because authentication has to look them up before any user context exists. The application role may only select, insert and update `users`, and only select, insert and delete `sessions`. `tasks` and `invitations` are user-owned tables with forced policies. `module_settings` is instance-wide, has no `user_id` and intentionally no RLS policy; the application role may select, insert and update it. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic.
-- Worker: taskiq with a Redis list broker, same image as the backend. The example job `tasks.count_open` runs inside the owning user's context. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
+- Row-level security: `users` and `sessions` are intentionally not row-level-secured, because authentication has to look them up before any user context exists. The application role may only select, insert and update `users`, and only select, insert and delete `sessions`. `tasks`, `reminders` and `invitations` are user-owned tables with forced policies. `module_settings` is instance-wide, has no `user_id` and intentionally no RLS policy; the application role may select, insert and update it. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic. The reviewed SECURITY DEFINER exception `users_with_due_tasks(now)` returns only user ids for the reminder worker; PUBLIC execution is revoked and only the application role can execute it.
+- Worker: taskiq with a Redis list broker, same image as the backend. `reminders.mark_due` runs every minute, finds users through the narrowly scoped `users_with_due_tasks` function, checks task module enablement, materializes reminders in each user's RLS context and publishes reminder ids to that user's Redis channel. `tasks.count_open` remains an example job. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
 - Scheduler: Taskiq's label schedule source reads recurring jobs from the same backend image and Redis broker. Its healthcheck verifies that the scheduler command is still running as PID 1.
-- Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint and route dependencies can block their APIs; worker jobs can use `ensure_module_enabled`, but no job calls it yet. Chat, files and tasks are placeholders without screens or services. Disabling a module leaves its data untouched.
+- Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint; task APIs and the reminder worker enforce module enablement. Chat and files remain placeholders without services. Disabling a module leaves its data untouched.
+- Tasks and reminders: task CRUD, completion/reopen, soft delete and user-scoped reminder operations are implemented in shared services behind REST adapters. The task page provides localized task entry, filtering, editing and completion. The reminder banner loads active reminders and receives refreshed lists over per-user Redis-backed SSE; the stream uses short-lived user sessions and releases its Redis subscription on disconnect.
 - Frontend: SvelteKit with adapter-node, server-side load of the user and modules, a generated OpenAPI type schema used by a shared `openapi-fetch` client, German and English catalogs with a typed key set.
 
 
@@ -101,7 +102,7 @@ The embedding dimension is fixed in the config file; changing the embedding mode
 - Instance-wide `module_settings` has no `user_id` and no RLS policy; it is available to the application role for admin-managed enablement.
 - The backend connects with a dedicated application role that is neither superuser nor table owner and has no `BYPASSRLS`. Migrations run with a separate owner role.
 - Each request transaction runs `SET LOCAL app.user_id = <id>` (set by the repository layer from the `UserContext`); with no value set, queries return no rows.
-- Worker jobs carry the owning user id and set the same context. The invitation registration flow is a reviewed cross-user exception: `invitation_is_valid` and `consume_invitation` are SECURITY DEFINER functions owned by the migration role, with a fixed `public` search path, revoked PUBLIC privileges, and EXECUTE granted only to the application role. They expose only validity and atomic consumption by token hash; direct invitation queries remain scoped to `created_by`.
+- Worker jobs carry the owning user id and set the same context. Two reviewed cross-user exceptions use SECURITY DEFINER functions owned by the migration role and a fixed `public` search path. Invitation functions expose validity and atomic consumption by token hash; direct invitation queries remain scoped to `created_by`. `users_with_due_tasks(p_now)` returns only distinct user ids that have due, open, undeleted tasks without a reminder for that task and reminder time. PUBLIC privileges are revoked and EXECUTE is granted only to the application role; the worker then returns to per-user RLS contexts for all reminder data access.
 - Tests cover: missing context returns nothing, cross-user reads and writes fail, and the application role cannot bypass policies.
 
 ## 6. Authentication and multi-user
@@ -134,11 +135,14 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 - Text-to-speech is generated on demand and cached per message.
 
 ## 10. Tasks and reminders
-- Tasks with `due_at` and optional `remind_at`. The worker marks reminders as due; the web UI receives them over an SSE channel and shows them in-app. No e-mail or push in the MVP.
-- Reminder state is per user and survives reloads; dismissing is explicit.
+- `tasks` hold title, optional notes, due time, optional reminder time, completion time and a soft-delete timestamp. Task queries are scoped to the authenticated user and omit soft-deleted tasks. Lists filter open, done or all tasks and paginate by `(created_at, id)`.
+- `reminders` are per-user rows with pending, shown or dismissed state. Once a minute, `reminders.mark_due` finds users with work through `users_with_due_tasks`, materializes each due task reminder idempotently, and publishes `{"reminder_ids": [...]}` to `reminders:{user_id}` in Redis. Completing or deleting a task, or changing its reminder time, dismisses pending reminders.
+- `GET /api/v1/reminders/stream` sends the active reminder list on connect, then refreshes it after Redis notifications; a keepalive comment is sent every 20 seconds. The browser banner reconnects with backoff and supports explicit dismissal. No e-mail or push in the MVP.
+- Reminder state survives reloads; dismissing is explicit. Disabling the tasks module blocks the APIs and scheduled job while preserving stored rows.
 
 ## 11. REST API
 - Prefix `/api/v1`, OpenAPI generated from the code, TypeScript types generated from the schema and consumed by a shared `openapi-fetch` client for browser and server requests.
+- Tasks REST operations: `POST/GET /tasks`, `GET/PATCH/DELETE /tasks/{id}`, `POST /tasks/{id}/complete`, `POST /tasks/{id}/reopen`, `GET /reminders`, `POST /reminders/{id}/dismiss`, and `GET /reminders/stream`. All are authenticated and gated by tasks-module enablement.
 - Cursor pagination, consistent error shape, idempotency keys for create operations, request ids in responses and logs.
 - Change feed for later offline clients: list endpoints support `updated_since` and tombstones (`deleted_at`). Sync itself is out of scope for the MVP.
 
@@ -150,7 +154,7 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 
 ## 13. Modules
 - Registry in the backend declares `key`, name key (i18n), icon, routes, required scopes, dependencies (none unconditional). The sidebar is generated from enabled entries in `GET /api/v1/modules` for the current user.
-- Instance-wide enablement is stored in the non-user-owned `module_settings` table and managed by admins through `/admin` and `/api/v1/admin/modules`; a missing row means enabled. Per-user visibility follows scopes. API route dependencies and worker jobs can enforce disabled state, and module data remains untouched. Jobs must call `ensure_module_enabled`; no current job needs it yet.
+- Instance-wide enablement is stored in the non-user-owned `module_settings` table and managed by admins through `/admin` and `/api/v1/admin/modules`; a missing row means enabled. Per-user visibility follows scopes. API route dependencies and worker jobs enforce disabled state, and module data remains untouched. The reminder worker calls `ensure_module_enabled("tasks")` before work.
 - Initial modules: chat, files, tasks. Later: calendar and others as additional modules.
 
 ## 14. Deployment topologies

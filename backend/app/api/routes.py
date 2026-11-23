@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_user_scoped_session
+from app.api.tasks import router as tasks_router
 from app.auth.manager import (
     COOKIE_NAME,
     auth_backend,
@@ -188,6 +189,7 @@ router.include_router(
     tags=["auth"],
     dependencies=[Depends(enforce_auth_rate_limit)],
 )
+router.include_router(tasks_router)
 router.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
     prefix="/auth",
