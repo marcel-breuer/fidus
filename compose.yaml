@@ -1,0 +1,160 @@
+name: fidus
+
+x-hardened: &hardened
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+asyncpg://${APP_DB_USER:-fidus_app}:${APP_DB_PASSWORD:?run scripts/prepare-env.sh}@db:5432/${POSTGRES_DB:-fidus}
+  DATABASE_OWNER_URL: postgresql+asyncpg://${POSTGRES_USER:-fidus}:${POSTGRES_PASSWORD:?run scripts/prepare-env.sh}@db:5432/${POSTGRES_DB:-fidus}
+  APP_DB_USER: ${APP_DB_USER:-fidus_app}
+  APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+  REDIS_URL: redis://redis:6379/0
+  SECRET_KEY: ${SECRET_KEY:?run scripts/prepare-env.sh}
+  APP_URL: ${APP_URL:-http://localhost:8080}
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  REGISTRATION_MODE: ${REGISTRATION_MODE:-open}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+x-backend-build: &backend-build
+  context: ./backend
+  args:
+    INSTALL_DEV: ${BACKEND_INSTALL_DEV:-true}
+
+services:
+  gateway:
+    <<: *hardened
+    image: nginxinc/nginx-unprivileged:1.28-alpine
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    volumes:
+      - ./gateway/default.conf:/etc/nginx/conf.d/default.conf:ro
+    tmpfs:
+      - /tmp
+    networks: [edge, internal]
+    depends_on:
+      frontend: {condition: service_healthy}
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  frontend:
+    <<: *hardened
+    build: ./frontend
+    environment:
+      ORIGIN: ${APP_URL:-http://localhost:8080}
+      BACKEND_URL: http://backend:8000
+      HOST: 0.0.0.0
+      PORT: "3000"
+    networks: [internal]
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # Tooling only (tests, type check, build): docker compose run --rm frontend-dev npm test
+  frontend-dev:
+    profiles: [tools]
+    build:
+      context: ./frontend
+      target: dev
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [egress]
+
+  backend:
+    <<: *hardened
+    build: *backend-build
+    image: fidus-backend
+    environment: *backend-env
+    networks: [internal, egress]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    <<: *hardened
+    image: fidus-backend
+    command: ["taskiq", "worker", "app.worker.broker:broker", "app.worker.tasks", "--workers", "1"]
+    environment: *backend-env
+    networks: [internal, egress]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker.healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  migrate:
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    image: fidus-backend
+    build: *backend-build
+    command: ["python", "-m", "app.db.migrate"]
+    environment: *backend-env
+    networks: [internal]
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+  db:
+    <<: *hardened
+    image: pgvector/pgvector:pg17
+    user: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fidus}
+      POSTGRES_USER: ${POSTGRES_USER:-fidus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run scripts/prepare-env.sh}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    <<: *hardened
+    image: redis:7-alpine
+    user: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+networks:
+  edge: {}
+  # No route to the outside: only the gateway publishes a port, only backend and worker reach the OpenAI API.
+  internal:
+    internal: true
+  egress: {}
+
+volumes:
+  db_data:
+  redis_data:

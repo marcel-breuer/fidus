@@ -2,7 +2,7 @@
 
 Open-source, self-hostable personal assistant: a chat interface with a growing set of modules (chat, files, tasks, later calendar). Multi-user, FastAPI + SvelteKit + PostgreSQL/pgvector, powered by a single OpenAI API key.
 
-Status: early development. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions; the specified features are not all implemented yet.
+Status: early development. The scaffold runs: sign-up and sign-in, an app shell with the module sidebar (Chat, Files and Tasks are placeholders), row-level security and a background worker. Chat and the other features are not implemented yet. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
 
 ## Quick start
 ```sh
@@ -10,7 +10,17 @@ git clone https://github.com/marcel-breuer/fidus
 cd fidus
 ./start.sh
 ```
-`start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack. Set `OPENAI_API_KEY` in `.env` to use the assistant.
+`start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack, then prints the address (default `http://localhost:8080`). The first account you register becomes the admin. `REGISTRATION_MODE` (`open`, `invite-only`, `closed`) controls registration afterwards. Set `OPENAI_API_KEY` in `.env` before the assistant features arrive.
+
+## Development
+```sh
+docker compose exec backend pytest                                   # backend tests
+docker compose run --rm frontend-dev npm test                            # frontend tests
+docker compose run --rm frontend-dev sh -c "npm run check && npm run build"
+```
+The backend tests create a scratch database named `<POSTGRES_DB>_test` and never touch the data database. They need the Postgres role in `DATABASE_OWNER_URL` to be allowed to create databases and roles (the bundled `db` service qualifies). The application role is cluster-wide, so a test run with a different `APP_DB_PASSWORD` changes that role's password; `./start.sh` or `docker compose run --rm migrate` restores it.
+
+`BACKEND_INSTALL_DEV=false` in `.env` builds the backend image without pytest.
 
 ## Documentation
 - [Specification](docs/SPEC.md)

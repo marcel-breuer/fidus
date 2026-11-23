@@ -47,8 +47,8 @@ Validation commands (once the stack exists):
 | Targeted backend test | `docker compose exec backend pytest tests/test_tasks.py -k reminder` |
 | Migrations | `docker compose exec backend alembic upgrade head` |
 | New migration | `docker compose exec backend alembic revision --autogenerate -m "<message>"` |
-| Frontend tests | `docker compose run --rm frontend npm test` |
-| Frontend type check and build | `docker compose run --rm frontend npm run check && docker compose run --rm frontend npm run build` |
+| Frontend tests | `docker compose run --rm frontend-dev npm test` |
+| Frontend type check and build | `docker compose run --rm frontend-dev npm run check && docker compose run --rm frontend-dev npm run build` |
 
 ## Testing
 - Every functional change includes or updates tests: expected behavior, edge cases, regressions.

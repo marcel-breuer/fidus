@@ -1,6 +1,16 @@
 # Fidus — Architecture Overview
 
-Status: design. Nothing described here is implemented until the scaffold lands; update this file together with the code.
+Status: the scaffold is implemented (Compose stack, auth, module registry, row-level security, worker, web shell). Chat, files, tasks, audio, tokens, the MCP server and everything else below are design only. Update this file together with the code.
+
+## 0. Implemented in the scaffold
+- Compose services: `gateway`, `frontend`, `backend`, `worker`, `db`, `redis` and the one-shot `migrate` service that `backend` and `worker` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API).
+- Auth: fastapi-users with a JWT in an httpOnly, SameSite=Lax cookie (`fidus_session`). Logout clears the cookie; a stolen token stays valid until it expires (`session_lifetime_seconds`, 14 days). The first registered user becomes admin (`is_superuser`, exposed as `role`); registrations are serialized with an advisory lock. `REGISTRATION_MODE=closed` rejects further registrations; `invite-only` behaves the same until invitations exist. Cross-site writes are refused by an `Origin` check against `APP_URL`; a full CSRF token scheme is not implemented.
+- Not implemented yet: rate limits on auth endpoints, API tokens, OAuth, admin UI, `module_settings`.
+- Row-level security: `users` is intentionally not row-level-secured, because authentication has to find a user before any context exists; the application role may only select, insert and update it. `tasks` is the example user-owned table with a forced policy. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic.
+- Worker: taskiq with a Redis list broker, same image as the backend. The example job `tasks.count_open` runs inside the owning user's context. The worker healthcheck verifies that Redis and the database answer.
+- Modules: `GET /api/v1/modules` returns the registry entries for the session user; the sidebar renders them. Chat, files and tasks are placeholders without screens or services. Instance-wide enablement is not implemented.
+- Frontend: SvelteKit with adapter-node, server-side load of the user and modules, German and English catalogs with a typed key set.
+
 
 ## 1. Goals and constraints
 - Web interface first. Native apps (macOS, iOS, iPadOS, Windows) come later as clients of the same API.
@@ -51,7 +61,7 @@ flowchart LR
 | Gateway | Single host port, TLS (external proxy or certificates mounted into the gateway), routes `/` to the frontend, `/api` and `/mcp` to the backend; proxy buffering disabled and long timeouts for SSE | Nginx |
 | Frontend | Web UI, generated TypeScript API client, i18n DE/EN; runs as its own container behind the gateway | SvelteKit (Node server), TypeScript |
 | Backend | REST API, SSE streaming, MCP endpoint, auth, services | FastAPI, SQLAlchemy async, Alembic |
-| Worker | Transcription, text extraction, chunking, embedding, reindexing, reminder scheduling | same codebase as backend, separate process |
+| Worker | Transcription, text extraction, chunking, embedding, reindexing, reminder scheduling | same codebase as backend, separate process (taskiq on Redis) |
 | Database | Relational data, full-text search, vectors | PostgreSQL + pgvector |
 | File storage | User files, uploaded audio, attachments | local volume behind a storage interface; S3-compatible adapter later |
 | Job queue and cache | Durable background jobs, rate-limit counters, short-lived cache | Redis |
