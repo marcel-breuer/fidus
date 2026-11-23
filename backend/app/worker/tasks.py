@@ -62,6 +62,13 @@ async def process_index_document(
     await index_document(user_id, document_id, storage or build_storage(), embedder)
 
 
+@broker.task(task_name="audio.transcribe_memo")
+async def transcribe_memo_job(user_id: str, memo_id: str) -> None:
+    from app.services.transcription import process_memo_job
+
+    await process_memo_job(user_id, memo_id)
+
+
 @broker.task(task_name="sessions.purge_expired", schedule=[{"cron": "15 3 * * *"}])
 async def purge_expired_auth_sessions() -> int:
     """Remove expired sessions once per day at 03:15 UTC."""

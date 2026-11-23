@@ -178,6 +178,29 @@ class Document(TimestampMixin, Base):
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
 
+class Memo(TimestampMixin, Base):
+    """A recorded or uploaded voice memo. Its transcript lives in the linked `documents` row."""
+
+    __tablename__ = "memos"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'transcribing', 'ready', 'failed')", name="memo_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")
+    error_code: Mapped[str | None] = mapped_column(String(50))
+    audio_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(10))
+    document_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("documents.id", ondelete="SET NULL"), index=True
+    )
+    speech_key: Mapped[str | None] = mapped_column(String(255))
+
+
 class Chunk(Base):
     __tablename__ = "chunks"
     __table_args__ = (

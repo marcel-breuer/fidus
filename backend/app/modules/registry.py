@@ -18,6 +18,7 @@ REGISTRY: tuple[Module, ...] = (
     Module("chat", "modules.chat", "chat", "/chat", ("chat:use",), ("files", "tasks")),
     Module("files", "modules.files", "files", "/files", ("files:read", "files:write")),
     Module("tasks", "modules.tasks", "tasks", "/tasks", ("tasks:read", "tasks:write")),
+    Module("audio", "modules.audio", "audio", "/audio", ("audio:read", "audio:write")),
 )
 
 

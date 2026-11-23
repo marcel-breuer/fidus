@@ -153,3 +153,40 @@ async def retry_latest_document(session: AsyncSession, user: User, node_id: str)
         lambda: enqueue_index_document(user.id, document.id)
     )
     return document
+
+
+async def index_document_text(user_id: str, document_id: str, embedder: EmbeddingProvider) -> None:
+    """Chunk, embed and store the text already held by a document (memo transcripts)."""
+    async with user_session(user_id) as session:
+        document = await session.scalar(
+            select(Document).where(Document.id == document_id, Document.user_id == user_id)
+        )
+        content = document.content if document is not None else None
+    if not content:
+        await mark_document_failed(user_id, document_id, "SOURCE_NOT_FOUND")
+        return
+    try:
+        config = get_model_config().retrieval
+        pieces = chunk_text(content, config.chunk_size_chars, config.chunk_overlap_chars)
+        embeddings: list[list[float]] = []
+        for start in range(0, len(pieces), 64):
+            embeddings.extend(await embedder.embed(pieces[start:start + 64]))
+        if len(embeddings) != len(pieces) or any(len(vector) != 1536 for vector in embeddings):
+            raise ValueError("Invalid embedding response")
+    except Exception:
+        await mark_document_failed(user_id, document_id, "INDEXING_FAILED")
+        return
+    async with user_session(user_id) as session:
+        document = await session.scalar(
+            select(Document).where(Document.id == document_id, Document.user_id == user_id)
+        )
+        if document is None:
+            return
+        await session.execute(delete(Chunk).where(Chunk.document_id == document.id, Chunk.user_id == user_id))
+        session.add_all(
+            Chunk(user_id=user_id, document_id=document.id, position=position, content=piece, embedding=vector)
+            for position, (piece, vector) in enumerate(zip(pieces, embeddings, strict=True))
+        )
+        document.status = "ready"
+        document.error_code = None
+        document.chunk_count = len(pieces)
