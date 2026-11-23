@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.db.base import new_id
 from app.db.models import User
 from app.db.session import get_sessionmaker
+from app.services.instance_settings import get_registration_mode
 from app.services.invitations import consume_invitation, validate_invitation
 
 COOKIE_NAME = "fidus_session"
@@ -43,7 +44,7 @@ class UserManager(BaseUserManager[User, str]):
         await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _REGISTRATION_LOCK})
         existing = await session.scalar(select(func.count()).select_from(User))
         if existing:
-            mode = get_settings().registration_mode
+            mode = await get_registration_mode(session)
             if mode == "closed":
                 await session.rollback()
                 raise RegistrationClosedError

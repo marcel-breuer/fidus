@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ModuleSetting, User
 from app.modules.registry import REGISTRY
+from app.services import audit
 
 
 class UnknownModuleError(ValueError):
@@ -36,7 +37,9 @@ async def set_enabled(
     else:
         setting.enabled = enabled
         setting.updated_by = admin.id
-    await session.flush()
+    await audit.record(
+        session, admin, "admin.module.set", "module", module_key, {"enabled": enabled}, actor="admin"
+    )
     return setting
 
 
