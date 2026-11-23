@@ -1,6 +1,6 @@
 # Fidus — Architecture Overview
 
-Status: the scaffold is implemented (Compose stack, auth, module registry, row-level security, worker, web shell). Chat, files, tasks, audio, tokens, the MCP server and everything else below are design only. Update this file together with the code.
+Status: the scaffold and the Stage 1 chat backend foundation are implemented. Other chat capabilities, files, tasks, audio, tokens, the MCP server and everything else below remain design only. Update this file together with the code.
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `scheduler`, `db`, `redis` and the one-shot `migrate` service that `backend`, `worker` and `scheduler` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API); the scheduler only needs Redis on `internal`.
@@ -12,6 +12,7 @@ Status: the scaffold is implemented (Compose stack, auth, module registry, row-l
 - Worker: taskiq with a Redis list broker, same image as the backend. The example job `tasks.count_open` runs inside the owning user's context. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
 - Scheduler: Taskiq's label schedule source reads recurring jobs from the same backend image and Redis broker. Its healthcheck verifies that the scheduler command is still running as PID 1.
 - Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint and route dependencies can block their APIs; worker jobs can use `ensure_module_enabled`, but no job calls it yet. Chat, files and tasks are placeholders without screens or services. Disabling a module leaves its data untouched.
+- Chat Stage 1 (`Refs #18`): fixed model configuration is loaded from `backend/app/ai/models.toml`; a provider interface and OpenAI chat provider are present. User-owned `conversations` and `messages` tables have forced RLS, and REST routes provide conversation CRUD, message listing and full-text message search. Streaming/chat completion endpoint, memory, web search, attachments and agent tools are **not implemented yet**. Frontend work remains pending; `frontend/openapi.json` and the generated `schema.d.ts` need regenerating for these routes.
 - Frontend: SvelteKit with adapter-node, server-side load of the user and modules, a generated OpenAPI type schema used by a shared `openapi-fetch` client, German and English catalogs with a typed key set.
 
 
