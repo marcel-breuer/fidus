@@ -5,7 +5,7 @@
 	import { logout, logoutAll } from '$lib/api/client';
 	import { LOCALES, LOCALE_COOKIE, type Locale } from '$lib/i18n';
 	import { getT, provideT } from '$lib/i18n/context';
-	import { Button, Sidebar } from '$lib/ui';
+	import { Button, ReminderBanner, Sidebar } from '$lib/ui';
 
 	let { data, children } = $props();
 	provideT(() => data.locale);
@@ -48,7 +48,12 @@
 				</div>
 			</div>
 		</aside>
-		<main>{@render children()}</main>
+		<main>
+			{#if data.modules.some((module) => module.key === 'tasks')}
+				<ReminderBanner enabled={true} />
+			{/if}
+			{@render children()}
+		</main>
 	</div>
 {:else}
 	{@render children()}

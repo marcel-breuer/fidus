@@ -3,3 +3,4 @@ export { default as Button } from './Button.svelte';
 export { default as Icon } from './Icon.svelte';
 export { default as Sidebar } from './Sidebar.svelte';
 export { default as TextField } from './TextField.svelte';
+export { default as ReminderBanner } from './ReminderBanner.svelte';
