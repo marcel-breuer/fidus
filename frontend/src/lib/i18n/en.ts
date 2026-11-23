@@ -69,7 +69,27 @@ export const en = {
 	'admin.invitations.active': 'Active invitations',
 	'admin.invitations.empty': 'There are no active invitations.',
 	'admin.invitations.expires': 'Expires {date}',
-	'admin.invitations.revoke': 'Revoke'
+	'admin.invitations.revoke': 'Revoke',
+	'tasks.title': 'Tasks',
+	'tasks.taskTitle': 'Task title',
+	'tasks.dueAt': 'Due date and time',
+	'tasks.remindAt': 'Reminder date and time',
+	'tasks.notes': 'Notes',
+	'tasks.add': 'Add task',
+	'tasks.filter': 'Filter tasks',
+	'tasks.open': 'Open',
+	'tasks.done': 'Done',
+	'tasks.all': 'All',
+	'tasks.empty': 'No tasks to show.',
+	'tasks.error': 'Tasks could not be loaded or saved.',
+	'tasks.dueLabel': 'Due {date}',
+	'tasks.edit': 'Edit',
+	'tasks.delete': 'Delete',
+	'tasks.save': 'Save',
+	'tasks.cancel': 'Cancel',
+	'reminders.title': 'Due reminders',
+	'reminders.dismiss': 'Dismiss',
+	'reminders.error': 'Reminders could not be synchronized.'
 } as const;
 
 export type MessageKey = keyof typeof en;
