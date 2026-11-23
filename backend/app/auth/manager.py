@@ -4,13 +4,17 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport, JWTStrategy
 from fastapi_users.db import SQLAlchemyUserDatabase
+from fastapi_users.exceptions import UserAlreadyExists
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import UserCreate
 from app.config import get_settings
+from app.db.base import new_id
 from app.db.models import User
 from app.db.session import get_sessionmaker
+from app.services.invitations import consume_invitation, validate_invitation
 
 COOKIE_NAME = "fidus_session"
 # Serializes registrations so exactly one "first user" exists.
@@ -38,9 +42,43 @@ class UserManager(BaseUserManager[User, str]):
         await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _REGISTRATION_LOCK})
         existing = await session.scalar(select(func.count()).select_from(User))
         if existing:
-            if get_settings().registration_mode != "open":
+            mode = get_settings().registration_mode
+            if mode == "closed":
                 await session.rollback()
                 raise RegistrationClosedError
+            if mode == "invite-only":
+                token = user_create.invitation_token
+                if not token or not await validate_invitation(session, token):
+                    await session.rollback()
+                    raise RegistrationClosedError
+                await self.validate_password(user_create.password, user_create)
+                if await self.user_db.get_by_email(user_create.email) is not None:
+                    await session.rollback()
+                    raise UserAlreadyExists
+                # Same steps as BaseUserManager.create, except that the insert and the
+                # invitation consumption must share one transaction (user_db.create commits).
+                user_dict = (
+                    user_create.create_update_dict()
+                    if safe
+                    else user_create.create_update_dict_superuser()
+                )
+                password = user_dict.pop("password")
+                user_dict["hashed_password"] = self.password_helper.hash(password)
+                user_id = new_id()
+                user = User(id=user_id, **user_dict)
+                session.add(user)
+                try:
+                    await session.flush()
+                except IntegrityError as exc:
+                    await session.rollback()
+                    raise UserAlreadyExists from exc
+                if not await consume_invitation(session, token, user_id):
+                    await session.rollback()
+                    raise RegistrationClosedError
+                await session.commit()
+                await session.refresh(user)
+                await self.on_after_register(user, request)
+                return user
             return await super().create(user_create, safe=True, request=request)
         # The first account bootstraps the instance, whatever the registration mode.
         first = user_create.model_copy(update={"is_superuser": True})

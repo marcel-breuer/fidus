@@ -1,7 +1,7 @@
 from typing import Literal
 
 from fastapi_users import schemas
-from pydantic import computed_field
+from pydantic import Field, computed_field
 
 
 class UserRead(schemas.BaseUser[str]):
@@ -12,4 +12,4 @@ class UserRead(schemas.BaseUser[str]):
 
 
 class UserCreate(schemas.BaseUserCreate):
-    pass
+    invitation_token: str | None = Field(default=None, exclude=True)

@@ -20,11 +20,19 @@ export async function login(email: string, password: string): Promise<AuthError 
 	return response.status === 400 ? 'credentials' : 'unknown';
 }
 
-export async function register(email: string, password: string): Promise<AuthError | null> {
+export async function register(
+	email: string,
+	password: string,
+	invitationToken?: string
+): Promise<AuthError | null> {
 	const response = await fetch('/api/v1/auth/register', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ email, password })
+		body: JSON.stringify({
+			email,
+			password,
+			...(invitationToken ? { invitation_token: invitationToken } : {})
+		})
 	});
 	if (response.ok) return null;
 	if (response.status === 429) return 'rateLimited';
