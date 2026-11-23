@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, ProgrammingError
 
+from app.config import get_settings
 from app.db.models import Task
 from app.db.session import system_session, user_session
 from app.worker.broker import broker
@@ -114,6 +115,13 @@ async def test_application_role_has_no_privileged_attributes() -> None:
     assert tuple(row) == (False, False, False, False)
 
 
+async def test_application_role_is_test_specific() -> None:
+    async with system_session() as session:
+        role = await session.scalar(text("SELECT current_user"))
+    assert role == get_settings().app_db_user
+    assert role.endswith("_test")
+
+
 async def test_application_role_cannot_disable_policies() -> None:
     async with system_session() as session:
         with pytest.raises(ProgrammingError):
@@ -142,7 +150,9 @@ async def test_rls_is_forced_on_user_owned_tables(owner_engine) -> None:
 async def test_application_role_does_not_own_tables(owner_engine) -> None:
     async with owner_engine.connect() as conn:
         owner = await conn.scalar(text("SELECT tableowner FROM pg_tables WHERE tablename = 'tasks'"))
-        app_role = await conn.scalar(text("SELECT rolname FROM pg_roles WHERE rolname = 'fidus_app'"))
+        app_role = await conn.scalar(
+            text("SELECT rolname FROM pg_roles WHERE rolname = :role"), {"role": get_settings().app_db_user}
+        )
     assert app_role is not None and owner != app_role
 
 

@@ -1,6 +1,6 @@
 """Test harness. Tests never touch the configured database: they build a scratch
 database `<name>_test` on the same server through the owner role, migrate it with
-the real Alembic migrations and connect as the real application role."""
+the real Alembic migrations and connect as a test-specific application role."""
 
 import asyncio
 import os
@@ -19,14 +19,16 @@ _DEFAULT_APP = "postgresql+asyncpg://fidus_app:change-me@db:5432/fidus"
 _owner_url = make_url(os.environ.get("DATABASE_OWNER_URL", _DEFAULT_OWNER))
 _app_url = make_url(os.environ.get("DATABASE_URL", _DEFAULT_APP))
 _test_db = f"{_owner_url.database}_test"
+_app_role = os.environ.get("APP_DB_USER") or _app_url.username or "fidus_app"
+_test_role = f"{_app_role}_test"
 OWNER_URL = _owner_url.set(database=_test_db).render_as_string(hide_password=False)
-APP_URL = _app_url.set(database=_test_db).render_as_string(hide_password=False)
+APP_URL = _app_url.set(database=_test_db, username=_test_role).render_as_string(hide_password=False)
 ADMIN_URL = _owner_url.set(database="postgres").render_as_string(hide_password=False)
 
 os.environ["DATABASE_OWNER_URL"] = OWNER_URL
 os.environ["DATABASE_URL"] = APP_URL
 os.environ["MIGRATION_DATABASE_URL"] = OWNER_URL
-os.environ["APP_DB_USER"] = _app_url.username or "fidus_app"
+os.environ["APP_DB_USER"] = _test_role
 os.environ["APP_DB_PASSWORD"] = _app_url.password or "change-me"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ["REGISTRATION_MODE"] = "open"
