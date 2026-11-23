@@ -13,7 +13,7 @@ These rules apply to every human or automated coding agent working in this repos
 Do not invent requirements. On conflicting instructions, report the conflict and apply the stricter rule.
 
 ## Product boundaries — do not violate
-1. **Multi-user from the start.** Every user-owned table has a `user_id`; every query is scoped to the authenticated user. No data access across users.
+1. **Multi-user from the start.** Every user-owned table has a `user_id`, a row-level-security policy, and every query is scoped to the authenticated user. No data access across users.
 2. **One provider key.** Model access uses a single `OPENAI_API_KEY` from the environment. Models are fixed in the config file, not selectable at runtime.
 3. **Private data stays private.** No sensitive values in logs, tests, docs or prompts by default. Uploaded files, transcripts and memory belong to their owner only.
 4. **Agent actions are permission-bound.** Only typed, registered server-side tools; no model-provided raw SQL or arbitrary command execution. Writes by the agent (files, tasks) are attributed to the user and auditable.
@@ -25,8 +25,9 @@ Do not invent requirements. On conflicting instructions, report the conflict and
 ## Architecture
 - Backend: Python, FastAPI, SQLAlchemy (async), Alembic, fastapi-users, pytest. Business logic lives in services, not in route handlers.
 - Frontend: SvelteKit, TypeScript, strict mode, accessible and mobile-first.
-- Database: PostgreSQL with pgvector. Schema changes only through Alembic migrations.
-- Runtime: Docker Compose with `db`, `backend`, `worker`, `frontend`. Only one service publishes a host port. Long-running work (transcription, indexing, reminders) runs in the worker.
+- Database: PostgreSQL with pgvector and row-level security on every user-owned table; the application role has no superuser or `BYPASSRLS` rights. Schema changes only through Alembic migrations.
+- Queue and cache: Redis for background jobs and rate-limit counters.
+- Runtime: Docker Compose with `gateway` (Nginx), `frontend` (SvelteKit Node server), `backend`, `worker`, `db`, `redis`. Only the gateway publishes a host port. Deployment is supported only through this Docker configuration. Long-running work (transcription, indexing, reminders) runs in the worker.
 - Internal and external knowledge access (RAG, web search) goes through service boundaries so it can be tested with fakes.
 
 ## Docker first

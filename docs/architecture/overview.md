@@ -20,11 +20,12 @@ flowchart LR
         M[MCP clients - e.g. IDE agents]
         X[Other integrations]
     end
-    GW[Gateway - single published port, TLS termination]
+    GW[Nginx gateway - single published port]
     subgraph Instance
         API[Backend - FastAPI: REST + SSE + MCP]
         WK[Worker - jobs]
         DB[(PostgreSQL + pgvector)]
+        RD[(Redis - jobs, cache)]
         FS[(File storage - volume, S3-compatible later)]
     end
     OAI[OpenAI API]
@@ -34,8 +35,10 @@ flowchart LR
     X --> GW
     GW --> API
     API --> DB
+    API --> RD
     API --> FS
     WK --> DB
+    WK --> RD
     WK --> FS
     API --> OAI
     WK --> OAI
@@ -45,15 +48,15 @@ flowchart LR
 
 | Component | Responsibility | Technology |
 | --- | --- | --- |
-| Gateway | Single host port, TLS (bundled profile or external proxy), routes `/` to the frontend, `/api` and `/mcp` to the backend; SSE-safe timeouts | Caddy or Nginx (open decision) |
-| Frontend | Web UI, generated TypeScript API client, i18n DE/EN | SvelteKit, TypeScript |
+| Gateway | Single host port, TLS (external proxy or certificates mounted into the gateway), routes `/` to the frontend, `/api` and `/mcp` to the backend; proxy buffering disabled and long timeouts for SSE | Nginx |
+| Frontend | Web UI, generated TypeScript API client, i18n DE/EN; runs as its own container behind the gateway | SvelteKit (Node server), TypeScript |
 | Backend | REST API, SSE streaming, MCP endpoint, auth, services | FastAPI, SQLAlchemy async, Alembic |
 | Worker | Transcription, text extraction, chunking, embedding, reindexing, reminder scheduling | same codebase as backend, separate process |
 | Database | Relational data, full-text search, vectors | PostgreSQL + pgvector |
 | File storage | User files, uploaded audio, attachments | local volume behind a storage interface; S3-compatible adapter later |
-| Job queue | Durable background jobs | PostgreSQL-backed queue (no extra service); Redis is the alternative if throughput requires it (open decision) |
+| Job queue and cache | Durable background jobs, rate-limit counters, short-lived cache | Redis |
 
-Only the gateway publishes a host port. Backend, worker, database and storage live on internal networks.
+Only the gateway publishes a host port. Frontend, backend, worker, database, Redis and storage live on internal networks.
 
 ## 4. Backend layering
 ```
@@ -64,7 +67,7 @@ routers (REST, SSE, MCP adapters)   thin: parse, authenticate, authorize, call a
 ```
 - **Capabilities** (search knowledge, read/write file, create/list/complete task, list conversations, ...) are defined once as typed service operations with input/output schemas and required scopes. The chat agent, REST routes and MCP tools are adapters over the same operations, so behavior, permissions and audit are identical.
 - **Provider interfaces** exist so tests use fakes and the OpenAI-specific code stays in one package.
-- Repositories require a `UserContext`; a query without one does not compile in the type system or fails in tests. PostgreSQL row-level security is a defense-in-depth option (open decision).
+- Repositories require a `UserContext`; a query without one does not compile in the type system or fails in tests. PostgreSQL row-level security (section 5a) enforces the same separation inside the database.
 
 ## 5. Data model (initial)
 All primary keys are ULIDs. Every user-owned table has `user_id` (indexed, foreign key), `created_at`, `updated_at`, and `deleted_at` where soft delete helps sync later.
@@ -76,16 +79,23 @@ All primary keys are ULIDs. Every user-owned table has `user_id` (indexed, forei
 | Knowledge | `nodes` (folder or file tree), `file_versions`, `documents` (extracted text, source: upload, memo, agent), `chunks` (text, embedding vector, position), `memories` |
 | Audio | `memos` (audio file, status, transcript document) |
 | Tasks | `tasks` (title, notes, due_at, remind_at, done_at), `reminders` (state: pending, shown, dismissed) |
-| Platform | `module_settings` (instance-wide and per user), `usage_records` (tokens, audio minutes per user and day) |
+| Platform | `module_settings` (instance-wide and per user), `usage_records` (tokens, audio minutes, storage per user and day; display only) |
 
 The embedding dimension is fixed in the config file; changing the embedding model triggers a reindex job.
 
+## 5a. Row-level security
+- Every user-owned table has `ENABLE` and `FORCE ROW LEVEL SECURITY` with a policy `user_id = current_setting('app.user_id')`.
+- The backend connects with a dedicated application role that is neither superuser nor table owner and has no `BYPASSRLS`. Migrations run with a separate owner role.
+- Each request transaction runs `SET LOCAL app.user_id = <id>` (set by the repository layer from the `UserContext`); with no value set, queries return no rows.
+- Worker jobs carry the owning user id and set the same context. The few cross-user operations (authentication lookup, admin user management, usage aggregation) use narrowly scoped functions or a separate role, reviewed and tested explicitly.
+- Tests cover: missing context returns nothing, cross-user reads and writes fail, and the application role cannot bypass policies.
+
 ## 6. Authentication and multi-user
-- Local accounts with fastapi-users. The first registered user becomes admin; afterwards registration is `invite-only` (default), `open` or `closed`, set by the admin. Roles: `admin`, `member`.
+- Local accounts with fastapi-users. The first registered user becomes admin; afterwards registration is `open` (default), `invite-only` or `closed`, set by the admin via `REGISTRATION_MODE` or the admin UI. With `open` registration, every registered user can consume the instance's OpenAI key; operators exposing an instance to the internet should consider `invite-only` or `closed`. Roles: `admin`, `member`.
 - Web: httpOnly, SameSite cookie session, CSRF protection for state-changing requests.
 - API, MCP and later apps: bearer tokens. Personal access tokens (created in the UI, shown once, stored hashed, scoped, revocable) cover MCP clients and scripts. Native apps later use OAuth 2.0 authorization code with PKCE against the same backend; MCP clients that follow the MCP authorization specification use the same OAuth endpoints. Verify the current MCP authorization specification at implementation time.
 - Scopes are capability-based (for example `knowledge:read`, `files:write`, `tasks:write`, `chat:use`). A token never exceeds its user's permissions.
-- Rate limits on auth endpoints; per-user quotas for tokens and audio minutes (configurable, off by default for self-hosting).
+- Rate limits on auth endpoints (counters in Redis). Usage is recorded per user and day (tokens, audio minutes, storage) and displayed to users and admins; no quota enforcement in the MVP.
 - An admin can manage users and modules but cannot read another user's conversations, files or memos.
 
 ## 7. Chat and agent
@@ -133,13 +143,12 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 | Topology | Description |
 | --- | --- |
 | Local | `./start.sh`: Docker Compose, gateway on `localhost:${APP_PORT}`, secrets generated into `.env` |
-| Own server | Same Compose files behind TLS. Option A: bundled Caddy profile with automatic certificates. Option B: external reverse proxy forwarding to the gateway. Config: `APP_URL`, `COOKIE_SECURE=true`, trusted proxy list |
-| Web hosting without Docker | Not supported by this design: it requires PostgreSQL with pgvector, a worker process and a long-lived backend. A managed-PostgreSQL variant (backend and worker as plain processes) is possible; to be decided |
+| Own server or web hosting | The same Docker Compose configuration, behind TLS (external reverse proxy forwarding to the Nginx gateway, or certificates mounted into the gateway). Config: `APP_URL`, `COOKIE_SECURE=true`, trusted proxy list. A hosting environment without Docker is not supported |
 
 Operations: health endpoints (`/health`, `/api/v1/health`), structured JSON logs without sensitive content, backup runbook (`pg_dump` plus file volume), upgrade and rollback as in `docs/releases.md`, migrations run by a one-shot service before the backend starts.
 
 ## 15. Security summary
-- Data separation by `user_id` in every repository call, tested with cross-user negative tests.
+- Data separation by `user_id` in every repository call and by PostgreSQL row-level security, tested with cross-user negative tests.
 - Secrets only in environment variables; tokens stored hashed; the OpenAI key never reaches the browser.
 - Upload validation (type, size, filename), isolated text extraction, no execution of uploaded content.
 - Prompt-injection posture: retrieved and fetched content is untrusted; write tools need approval by default; tools are typed and registered, no raw SQL or shell.
@@ -154,10 +163,15 @@ Operations: health endpoints (`/health`, `/api/v1/health`), structured JSON logs
 6. API tokens, scopes, MCP server, contract tests.
 7. Hardening: quotas, backups, documentation, first release.
 
-## 17. Open decisions
-- Gateway: Caddy or Nginx.
-- Job queue: PostgreSQL-backed or Redis.
-- Frontend serving: SvelteKit Node server behind the gateway, or static build served by the gateway.
-- Row-level security in PostgreSQL as additional isolation.
-- Managed-PostgreSQL variant without Docker for shared web hosting.
-- Default registration mode and quota defaults.
+## 17. Decisions
+- Gateway: Nginx.
+- Job queue and cache: Redis.
+- Frontend: SvelteKit Node server in its own container behind the gateway.
+- Row-level security in PostgreSQL from the start.
+- Deployment only through the provided Docker configuration, locally and on an own server or web hosting.
+- Default registration mode: `open`.
+- Quotas: usage display only, no enforcement in the MVP.
+
+## 18. Open points
+- Chunking parameters, retrieval defaults and exact model identifiers (decided by tests and current provider documentation).
+- Admin-configurable quota enforcement as a later feature.
