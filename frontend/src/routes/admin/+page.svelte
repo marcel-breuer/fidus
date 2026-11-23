@@ -5,12 +5,21 @@
 		buildInviteLink,
 		createInvitation,
 		getAdminModules,
+		getAdminUsers,
 		getInvitations,
+		getRegistration,
+		REGISTRATION_MODES,
 		revokeInvitation,
 		setModuleEnabled,
+		setRegistrationMode,
+		updateAdminUser,
+		userChangeErrorKey,
 		type AdminInvitation,
 		type AdminModule,
-		type CreatedInvitation
+		type AdminUser,
+		type CreatedInvitation,
+		type RegistrationMode,
+		type RegistrationSetting
 	} from '$lib/api/admin';
 	import { formatDate } from '$lib/i18n';
 	import type { MessageKey } from '$lib/i18n';
@@ -22,6 +31,10 @@
 	let invitations = $state<AdminInvitation[]>([]);
 	let created = $state<CreatedInvitation | null>(null);
 	let expiresInDays = $state('7');
+	let users = $state<AdminUser[]>([]);
+	let registration = $state<RegistrationSetting | null>(null);
+	let registrationSaved = $state(false);
+	let userError = $state<MessageKey | ''>('');
 	let loading = $state(true);
 	let busyKey = $state('');
 	let errorMessage = $state(false);
@@ -30,15 +43,61 @@
 		created ? buildInviteLink(page.url.origin, created.token) : ''
 	);
 
-	onMount(async () => {
+	async function load() {
+		loading = true;
+		errorMessage = false;
 		try {
-			[modules, invitations] = await Promise.all([getAdminModules(), getInvitations()]);
+			[modules, invitations, users, registration] = await Promise.all([
+				getAdminModules(),
+				getInvitations(),
+				getAdminUsers(),
+				getRegistration()
+			]);
 		} catch {
 			errorMessage = true;
 		} finally {
 			loading = false;
 		}
-	});
+	}
+
+	onMount(load);
+
+	async function changeUser(
+		user: AdminUser,
+		change: { is_active?: boolean; role?: AdminUser['role'] }
+	): Promise<boolean> {
+		busyKey = user.id;
+		userError = '';
+		try {
+			const updated = await updateAdminUser(user.id, change);
+			users = users.map((item) => (item.id === updated.id ? updated : item));
+			return true;
+		} catch (error) {
+			userError = userChangeErrorKey(error);
+			return false;
+		} finally {
+			busyKey = '';
+		}
+	}
+
+	function toggleActive(user: AdminUser) {
+		if (user.is_active && !confirm(t('admin.users.confirmDeactivate', { email: user.email }))) return;
+		void changeUser(user, { is_active: !user.is_active });
+	}
+
+	async function chooseMode(mode: RegistrationMode) {
+		busyKey = 'registration';
+		errorMessage = false;
+		registrationSaved = false;
+		try {
+			registration = await setRegistrationMode(mode);
+			registrationSaved = true;
+		} catch {
+			errorMessage = true;
+		} finally {
+			busyKey = '';
+		}
+	}
 
 	async function toggleModule(module: AdminModule, enabled: boolean) {
 		busyKey = module.key;
@@ -96,7 +155,88 @@
 	<h1>{t('admin.title')}</h1>
 	{#if errorMessage}
 		<Alert>{t('common.error')}</Alert>
+		<div><Button variant="quiet" onclick={load}>{t('common.retry')}</Button></div>
 	{/if}
+	<section class="glass-panel section" aria-labelledby="registration-title">
+		<h2 id="registration-title">{t('admin.registration.title')}</h2>
+		<p class="hint">{t('admin.registration.description')}</p>
+		{#if loading}
+			<p>{t('common.loading')}</p>
+		{:else if registration}
+			<div class="mode-group" role="radiogroup" aria-labelledby="registration-title">
+				{#each REGISTRATION_MODES as mode (mode)}
+					<label class="mode glass-control" class:selected={registration.mode === mode}>
+						<input
+							type="radio"
+							name="registration-mode"
+							value={mode}
+							checked={registration.mode === mode}
+							disabled={busyKey === 'registration'}
+							onchange={() => chooseMode(mode)}
+						/>
+						<span class="mode-name">{t(`admin.registration.mode.${mode}`)}</span>
+						<span class="hint">{t(`admin.registration.mode.${mode}.hint`)}</span>
+					</label>
+				{/each}
+			</div>
+			<p class="hint">{t('admin.registration.default', { mode: t(`admin.registration.mode.${registration.default}`) })}</p>
+			<p class="hint" role="status">{registrationSaved ? t('admin.registration.saved') : ''}</p>
+		{/if}
+	</section>
+
+	<section class="glass-panel section" aria-labelledby="users-title">
+		<h2 id="users-title">{t('admin.users.title')}</h2>
+		{#if userError}
+			<Alert>{t(userError)}</Alert>
+		{/if}
+		{#if loading}
+			<p>{t('common.loading')}</p>
+		{:else if users.length === 0}
+			<p>{t('admin.users.empty')}</p>
+		{:else}
+			<ul class="user-list">
+				{#each users as user (user.id)}
+					{@const isSelf = user.id === page.data.user?.id}
+					<li class="user glass-inset" class:inactive={!user.is_active}>
+						<div class="identity">
+							<span class="email">{user.email}</span>
+							<span class="badges">
+								{#if isSelf}<span class="badge">{t('admin.users.you')}</span>{/if}
+								<span class="badge" class:off={!user.is_active}>
+									{user.is_active ? t('admin.users.status.active') : t('admin.users.status.inactive')}
+								</span>
+							</span>
+						</div>
+						<div class="actions">
+							<select
+								class="glass-control"
+								aria-label={t('admin.users.role', { email: user.email })}
+								value={user.role}
+								disabled={busyKey === user.id || isSelf}
+								onchange={async (event) => {
+									const select = event.currentTarget;
+									// A refused change must show the stored role again.
+									if (!(await changeUser(user, { role: select.value as AdminUser['role'] }))) select.value = user.role;
+								}}
+							>
+								<option value="admin">{t('admin.users.role.admin')}</option>
+								<option value="member">{t('admin.users.role.member')}</option>
+							</select>
+							<Button
+								variant="quiet"
+								disabled={busyKey === user.id || (isSelf && user.is_active)}
+								aria-label={t(user.is_active ? 'admin.users.deactivateLabel' : 'admin.users.reactivateLabel', { email: user.email })}
+								onclick={() => toggleActive(user)}
+							>
+								{user.is_active ? t('admin.users.deactivate') : t('admin.users.reactivate')}
+							</Button>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+
 	<section class="glass-panel section" aria-labelledby="modules-title">
 		<h2 id="modules-title">{t('admin.modules.title')}</h2>
 		{#if loading}
@@ -169,7 +309,25 @@
 	.invite-result p { margin: 0; }
 	.link-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; min-width: 0; }
 	.link-row a { overflow-wrap: anywhere; }
+	.hint { margin: 0; color: var(--muted); font-size: 0.875rem; }
+	.mode-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.75rem; }
+	.mode { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.6rem; align-items: center; padding: 0.75rem; cursor: pointer; }
+	.mode.selected { border-color: var(--accent-text); }
+	.mode input { grid-row: span 2; accent-color: var(--accent-text); }
+	.mode-name { font-weight: 600; }
+	.mode .hint { grid-column: 2; }
+	.user-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
+	.user { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem; border-radius: 1rem; }
+	.user.inactive .email { color: var(--muted); }
+	.identity { display: grid; gap: 0.25rem; min-width: 0; }
+	.email { overflow-wrap: anywhere; font-weight: 600; }
+	.badges { display: flex; gap: 0.4rem; }
+	.badge { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px solid var(--glass-border); color: var(--accent-text); }
+	.badge.off { color: var(--muted); }
+	.actions { display: flex; align-items: center; gap: 0.5rem; }
+	.actions select { font: inherit; padding: 0.5rem 0.6rem; }
 	@media (max-width: 520px) {
+		.user { flex-direction: column; align-items: stretch; }
 		.create-form { grid-template-columns: 1fr; }
 		.invitation-list li { align-items: flex-start; }
 	}

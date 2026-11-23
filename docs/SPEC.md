@@ -68,6 +68,9 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 ### Administration
 - Admins create, list and revoke invitations and set their expiry from `/admin`; invitation tokens are shown once with a registration link
 - Admins can enable or disable registered modules for the instance
+- Admins list users, deactivate and reactivate them, and change roles from `/admin`; they cannot deactivate or demote themselves, and the last active admin is protected
+- Admins change the registration mode (open, invite-only, closed) at runtime; it overrides `REGISTRATION_MODE`, which stays the default
+- Administrative actions are recorded in the audit log
 
 ## Out of scope for the MVP
 - Multiple LLM providers, per-user model selection

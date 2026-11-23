@@ -343,6 +343,22 @@ class ModuleSetting(Base):
     )
 
 
+class InstanceSetting(Base):
+    """Instance-wide key/value setting (for example the registration mode); intentionally
+    not user-owned or RLS protected. A missing row means the environment default applies."""
+
+    __tablename__ = "instance_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    updated_by: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 class Session(Base):
     """Authentication session; read before a user context exists, like users."""
 

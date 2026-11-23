@@ -6,6 +6,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Invitation, User
+from app.services import audit
 
 
 def _token_hash(token: str) -> str:
@@ -23,6 +24,10 @@ async def create_invitation(
     )
     session.add(invitation)
     await session.flush()
+    await audit.record(
+        session, admin_user, "admin.invitation.create", "invitation", invitation.id,
+        {"expires_at": invitation.expires_at.isoformat()}, actor="admin",
+    )
     return invitation, token
 
 
@@ -50,6 +55,9 @@ async def revoke_invitation(session: AsyncSession, admin_user: User, invitation_
     if invitation is None:
         return False
     await session.delete(invitation)
+    await audit.record(
+        session, admin_user, "admin.invitation.revoke", "invitation", invitation_id, actor="admin"
+    )
     return True
 
 
