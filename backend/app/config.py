@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     registration_mode: RegistrationMode = "open"
     session_lifetime_seconds: int = 60 * 60 * 24 * 14
+    auth_rate_limit_attempts: int = Field(default=10, ge=1)
+    auth_rate_limit_window_seconds: int = Field(default=60, ge=1)
 
     openai_api_key: str = ""
 
