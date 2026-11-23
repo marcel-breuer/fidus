@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
 import hashlib
 import secrets
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,7 @@ async def create_invitation(
     invitation = Invitation(
         created_by=admin_user.id,
         token_hash=_token_hash(token),
-        expires_at=datetime.now(timezone.utc) + ttl,
+        expires_at=datetime.now(UTC) + ttl,
     )
     session.add(invitation)
     await session.flush()

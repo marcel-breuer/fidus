@@ -51,14 +51,19 @@ class UserManager(BaseUserManager[User, str]):
                 if not token or not await validate_invitation(session, token):
                     await session.rollback()
                     raise RegistrationClosedError
-                user_dict = (
-                    user_create.create_update_dict() if safe else user_create.create_dict()
-                )
-                user_dict.pop("password", None)
-                user_dict.pop("invitation_token", None)
                 await self.validate_password(user_create.password, user_create)
-                await self.on_before_create(user_create, request)
-                user_dict["hashed_password"] = self.password_helper.hash(user_create.password)
+                if await self.user_db.get_by_email(user_create.email) is not None:
+                    await session.rollback()
+                    raise UserAlreadyExists
+                # Same steps as BaseUserManager.create, except that the insert and the
+                # invitation consumption must share one transaction (user_db.create commits).
+                user_dict = (
+                    user_create.create_update_dict()
+                    if safe
+                    else user_create.create_update_dict_superuser()
+                )
+                password = user_dict.pop("password")
+                user_dict["hashed_password"] = self.password_helper.hash(password)
                 user_id = new_id()
                 user = User(id=user_id, **user_dict)
                 session.add(user)

@@ -1,12 +1,19 @@
-from datetime import datetime, timedelta, timezone
 import hashlib
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import select, text
 
 from app.db.models import Invitation
 from app.db.session import get_sessionmaker, set_user_context
-from tests.helpers import PASSWORD, login, register
+from tests.helpers import PASSWORD, register
+from tests.helpers import login as _login
+
+
+async def login(client: httpx.AsyncClient, email: str) -> httpx.Response:
+    response = await _login(client, email)
+    client.headers["X-CSRF-Token"] = client.cookies.get("fidus_csrf") or ""
+    return response
 
 
 async def _admin(client: httpx.AsyncClient, settings) -> dict[str, str]:
@@ -87,7 +94,7 @@ async def test_invite_only_rejects_missing_expired_and_revoked_tokens(
     async with owner_engine.begin() as connection:
         await connection.execute(
             text("UPDATE invitations SET expires_at = :past WHERE id = :id"),
-            {"past": datetime.now(timezone.utc) - timedelta(days=1), "id": expired["id"]},
+            {"past": datetime.now(UTC) - timedelta(days=1), "id": expired["id"]},
         )
     response = await client.post(
         "/api/v1/auth/register",
@@ -117,6 +124,11 @@ async def test_duplicate_registration_does_not_consume_invitation(
         json={"email": "duplicate@example.com", "password": PASSWORD, "invitation_token": invitation["token"]},
     )
     assert duplicate.status_code == 400
+    differently_cased = await client.post(
+        "/api/v1/auth/register",
+        json={"email": "Duplicate@Example.com", "password": PASSWORD, "invitation_token": invitation["token"]},
+    )
+    assert differently_cased.status_code == 400
     subsequent = await client.post(
         "/api/v1/auth/register",
         json={"email": "subsequent@example.com", "password": PASSWORD, "invitation_token": invitation["token"]},

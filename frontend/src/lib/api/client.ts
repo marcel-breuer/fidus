@@ -1,3 +1,5 @@
+import { csrfHeaders } from './csrf';
+
 export type AuthError = 'credentials' | 'exists' | 'closed' | 'invalid' | 'rateLimited' | 'unknown';
 
 async function detail(response: Response): Promise<unknown> {
@@ -42,5 +44,5 @@ export async function register(
 }
 
 export async function logout(): Promise<void> {
-	await fetch('/api/v1/auth/logout', { method: 'POST' });
+	await fetch('/api/v1/auth/logout', { method: 'POST', headers: csrfHeaders() });
 }
