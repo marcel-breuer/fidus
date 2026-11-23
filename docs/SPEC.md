@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). Chat attachments, audio, tokens and MCP remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`) are implemented. Chat attachments and OAuth remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -39,16 +39,16 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete at `/chat/memories`; injected into chat context), conversation history search, web search through a provider interface, numbered citations for file passages, earlier messages and web results, and typed agent tools (`search_knowledge`, `search_conversations`, `web_search`, `remember`, `create_task`). Agent writes ask for confirmation in the chat by default; a per-user setting lets the assistant act without asking. Every agent write is recorded in `audit_log`. Attachments remain unimplemented.
 
 ### Audio
-- Browser recording (microphone button), transcript is inserted as a message
+- Browser recording (MediaRecorder) and file upload on the audio page; inserting a transcript into a chat message is not implemented
 - Audio upload as memo: transcribe, store transcript as a searchable document
-- Long files: chunking and asynchronous processing (transcription API limit: 25 MB per file)
-- Text-to-speech for responses
+- Long files: ffmpeg segmenting and asynchronous processing (transcription API limit: 25 MB per file; uploads up to 100 MB)
+- Text-to-speech on demand for memo transcripts, cached per memo; speech for chat responses is not implemented
 
 ### Files module
 - Folder and file browser, files created by the user or by the agent
 - Content feeds the RAG index
 
-Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage, streamed uploads, versions and downloads. Stage 2 (`Refs #19`) implements plain text, Markdown, PDF and DOCX extraction; overlap-aware chunks and configured embeddings; per-user document/chunk tables; a background indexing job with retry; hybrid vector/full-text retrieval with file/version/position/snippet citations; and localized indexing status plus search in the Files page. Audio transcripts as documents, agent-created files, citations in chat answers and chat attachments remain later work.
+Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage, streamed uploads, versions and downloads. Stage 2 (`Refs #19`) implements plain text, Markdown, PDF and DOCX extraction; overlap-aware chunks and configured embeddings; per-user document/chunk tables; a background indexing job with retry; hybrid vector/full-text retrieval with file/version/position/snippet citations; and localized indexing status plus search in the Files page. Agent-created files, citations in chat answers and chat attachments remain later work.
 
 ### Tasks module
 - Implemented: user-scoped tasks with notes, due date, reminder time, completion/reopen, soft deletion and open/done/all filtering.
@@ -57,7 +57,8 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 
 ### API and MCP
 - Every capability is a typed service operation exposed through REST, the chat agent and MCP
-- Personal access tokens with scopes for integrations; OAuth for native apps later
+- Implemented: personal access tokens (hashed, scoped, revocable, 90-day default expiry) managed in the settings page, and an MCP server at `/mcp` for task, knowledge-search and conversation-search tools; token changes and MCP writes are recorded in the audit log, file tools are not exposed.
+- OAuth for native apps later
 
 ### Module system
 - Backend module registry and sidebar entries are generated from enabled entries; admins manage instance-wide module enablement from `/admin`

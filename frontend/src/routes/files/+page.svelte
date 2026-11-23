@@ -208,8 +208,8 @@
 		{:else if searchGroups.length}
 			<ul class="search-results">
 				{#each searchGroups as group (group.nodeId)}
-					<li><a href={group.folderId ? `/files?folder=${encodeURIComponent(group.folderId)}` : '/files'}>{group.fileName}</a>
-						<ol>{#each group.citations as citation (citation.chunk_id)}<li><span>{t('files.resultPosition', { position: citation.position + 1, version: citation.version })}</span><p>{citation.snippet}</p></li>{/each}</ol>
+					<li><a href={group.memoId ? '/audio' : group.folderId ? `/files?folder=${encodeURIComponent(group.folderId)}` : '/files'}>{group.fileName}</a>
+						<ol>{#each group.citations as citation (citation.chunk_id)}<li><span>{citation.version === null ? t('audio.memoSource') : t('files.resultPosition', { position: citation.position + 1, version: citation.version })}</span><p>{citation.snippet}</p></li>{/each}</ol>
 					</li>
 				{/each}
 			</ul>

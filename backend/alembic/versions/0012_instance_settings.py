@@ -9,7 +9,7 @@ from alembic import op
 from app.config import get_settings
 
 revision = "0012"
-down_revision = "0009"
+down_revision = "0011"
 branch_labels = None
 depends_on = None
 

@@ -287,6 +287,42 @@
         "title": "Body_auth_cookie_login_api_v1_auth_login_post",
         "type": "object"
       },
+      "Body_post_memo_api_v1_audio_memos_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_post_memo_api_v1_audio_memos_post",
+        "type": "object"
+      },
       "Body_post_upload_api_v1_files_upload_post": {
         "properties": {
           "file": {
@@ -352,9 +388,27 @@
             ],
             "title": "Folder Id"
           },
+          "memo_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memo Id"
+          },
           "node_id": {
-            "title": "Node Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
           },
           "position": {
             "title": "Position",
@@ -368,9 +422,21 @@
             "title": "Snippet",
             "type": "string"
           },
+          "source": {
+            "default": "upload",
+            "title": "Source",
+            "type": "string"
+          },
           "version": {
-            "title": "Version",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
           }
         },
         "required": [
@@ -641,6 +707,243 @@
           "expires_at"
         ],
         "title": "InvitationOut",
+        "type": "object"
+      },
+      "MemoDetailOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "index_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Error Code"
+          },
+          "index_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Status"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "transcript": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "error_code",
+          "mime_type",
+          "size_bytes",
+          "language",
+          "document_id",
+          "index_status",
+          "index_error_code",
+          "created_at",
+          "updated_at",
+          "transcript"
+        ],
+        "title": "MemoDetailOut",
+        "type": "object"
+      },
+      "MemoOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "index_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Error Code"
+          },
+          "index_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Status"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "error_code",
+          "mime_type",
+          "size_bytes",
+          "language",
+          "document_id",
+          "index_status",
+          "index_error_code",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MemoOut",
+        "type": "object"
+      },
+      "MemoUpdate": {
+        "properties": {
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "MemoUpdate",
         "type": "object"
       },
       "MemoryIn": {
@@ -1289,6 +1592,181 @@
         "title": "TaskUpdate",
         "type": "object"
       },
+      "TokenCreate": {
+        "properties": {
+          "expires_in_days": {
+            "default": 90,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Expires In Days",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "audio:read",
+                "audio:write",
+                "chat:use",
+                "files:read",
+                "files:write",
+                "tasks:read",
+                "tasks:write"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "scopes"
+        ],
+        "title": "TokenCreate",
+        "type": "object"
+      },
+      "TokenCreated": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "audio:read",
+                "audio:write",
+                "chat:use",
+                "files:read",
+                "files:write",
+                "tasks:read",
+                "tasks:write"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "token_prefix": {
+            "title": "Token Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "token_prefix",
+          "scopes",
+          "expires_at",
+          "last_used_at",
+          "created_at",
+          "token"
+        ],
+        "title": "TokenCreated",
+        "type": "object"
+      },
+      "TokenOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "audio:read",
+                "audio:write",
+                "chat:use",
+                "files:read",
+                "files:write",
+                "tasks:read",
+                "tasks:write"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "token_prefix": {
+            "title": "Token Prefix",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "token_prefix",
+          "scopes",
+          "expires_at",
+          "last_used_at",
+          "created_at"
+        ],
+        "title": "TokenOut",
+        "type": "object"
+      },
       "UserCreate": {
         "properties": {
           "email": {
@@ -1923,6 +2401,357 @@
         "summary": "Put Agent Settings",
         "tags": [
           "agent"
+        ]
+      }
+    },
+    "/api/v1/audio/memos": {
+      "get": {
+        "operationId": "get_memos_api_v1_audio_memos_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemoOut"
+                  },
+                  "title": "Response Get Memos Api V1 Audio Memos Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Memos",
+        "tags": [
+          "audio"
+        ]
+      },
+      "post": {
+        "operationId": "post_memo_api_v1_audio_memos_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_post_memo_api_v1_audio_memos_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Memo",
+        "tags": [
+          "audio"
+        ]
+      }
+    },
+    "/api/v1/audio/memos/{memo_id}": {
+      "delete": {
+        "operationId": "delete_memo_api_v1_audio_memos__memo_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memo_id",
+            "required": true,
+            "schema": {
+              "title": "Memo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Delete Memo",
+        "tags": [
+          "audio"
+        ]
+      },
+      "get": {
+        "operationId": "get_memo_api_v1_audio_memos__memo_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memo_id",
+            "required": true,
+            "schema": {
+              "title": "Memo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Memo",
+        "tags": [
+          "audio"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_memo_api_v1_audio_memos__memo_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memo_id",
+            "required": true,
+            "schema": {
+              "title": "Memo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemoUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Patch Memo",
+        "tags": [
+          "audio"
+        ]
+      }
+    },
+    "/api/v1/audio/memos/{memo_id}/audio": {
+      "get": {
+        "operationId": "get_memo_audio_api_v1_audio_memos__memo_id__audio_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memo_id",
+            "required": true,
+            "schema": {
+              "title": "Memo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Memo Audio",
+        "tags": [
+          "audio"
+        ]
+      }
+    },
+    "/api/v1/audio/memos/{memo_id}/retry": {
+      "post": {
+        "operationId": "post_retry_api_v1_audio_memos__memo_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memo_id",
+            "required": true,
+            "schema": {
+              "title": "Memo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Retry",
+        "tags": [
+          "audio"
+        ]
+      }
+    },
+    "/api/v1/audio/memos/{memo_id}/speech": {
+      "post": {
+        "operationId": "post_memo_speech_api_v1_audio_memos__memo_id__speech_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memo_id",
+            "required": true,
+            "schema": {
+              "title": "Memo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Memo Speech",
+        "tags": [
+          "audio"
         ]
       }
     },
@@ -3923,6 +4752,120 @@
         "summary": "Post Reopen",
         "tags": [
           "tasks"
+        ]
+      }
+    },
+    "/api/v1/tokens": {
+      "get": {
+        "operationId": "get_tokens_api_v1_tokens_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TokenOut"
+                  },
+                  "title": "Response Get Tokens Api V1 Tokens Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Tokens",
+        "tags": [
+          "tokens"
+        ]
+      },
+      "post": {
+        "operationId": "post_token_api_v1_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Token",
+        "tags": [
+          "tokens"
+        ]
+      }
+    },
+    "/api/v1/tokens/{token_id}": {
+      "delete": {
+        "operationId": "delete_token_api_v1_tokens__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Delete Token",
+        "tags": [
+          "tokens"
         ]
       }
     },

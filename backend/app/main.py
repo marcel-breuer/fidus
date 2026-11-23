@@ -11,6 +11,7 @@ from app.auth.csrf import csrf_middleware
 from app.auth.manager import RegistrationClosedError
 from app.config import get_settings
 from app.db.session import dispose_engine
+from app.mcp.router import router as mcp_router
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(router)
+    app.include_router(mcp_router)
     return app
 
 

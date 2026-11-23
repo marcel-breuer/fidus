@@ -62,6 +62,14 @@ class EmbeddingProvider(Protocol):
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
+class TranscriptionProvider(Protocol):
+    async def transcribe(self, audio: bytes, filename: str, language: str | None = None) -> str: ...
+
+
+class SpeechProvider(Protocol):
+    async def synthesize(self, text: str) -> bytes:
+        """Return a complete WAV file (24 kHz, 16-bit, mono) speaking `text` verbatim."""
+        ...
 @dataclass(frozen=True)
 class WebSource:
     title: str

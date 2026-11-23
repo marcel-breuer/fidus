@@ -159,6 +159,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audio/memos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Memos */
+        get: operations["get_memos_api_v1_audio_memos_get"];
+        put?: never;
+        /** Post Memo */
+        post: operations["post_memo_api_v1_audio_memos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/memos/{memo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Memo */
+        get: operations["get_memo_api_v1_audio_memos__memo_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Memo */
+        delete: operations["delete_memo_api_v1_audio_memos__memo_id__delete"];
+        options?: never;
+        head?: never;
+        /** Patch Memo */
+        patch: operations["patch_memo_api_v1_audio_memos__memo_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/audio/memos/{memo_id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Memo Audio */
+        get: operations["get_memo_audio_api_v1_audio_memos__memo_id__audio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/memos/{memo_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Retry */
+        post: operations["post_retry_api_v1_audio_memos__memo_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audio/memos/{memo_id}/speech": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Memo Speech */
+        post: operations["post_memo_speech_api_v1_audio_memos__memo_id__speech_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -713,6 +801,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tokens */
+        get: operations["get_tokens_api_v1_tokens_get"];
+        put?: never;
+        /** Post Token */
+        post: operations["post_token_api_v1_tokens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Token */
+        delete: operations["delete_token_api_v1_tokens__token_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -863,6 +986,15 @@ export interface components {
             /** Username */
             username: string;
         };
+        /** Body_post_memo_api_v1_audio_memos_post */
+        Body_post_memo_api_v1_audio_memos_post: {
+            /** File */
+            file: string;
+            /** Language */
+            language?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** Body_post_upload_api_v1_files_upload_post */
         Body_post_upload_api_v1_files_upload_post: {
             /** File */
@@ -885,16 +1017,23 @@ export interface components {
             file_name: string;
             /** Folder Id */
             folder_id: string | null;
+            /** Memo Id */
+            memo_id?: string | null;
             /** Node Id */
-            node_id: string;
+            node_id: string | null;
             /** Position */
             position: number;
             /** Score */
             score: number;
             /** Snippet */
             snippet: string;
+            /**
+             * Source
+             * @default upload
+             */
+            source: string;
             /** Version */
-            version: number;
+            version: number | null;
         };
         /** ConversationCreate */
         ConversationCreate: {
@@ -994,6 +1133,79 @@ export interface components {
             expires_at: string;
             /** Id */
             id: string;
+        };
+        /** MemoDetailOut */
+        MemoDetailOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Document Id */
+            document_id: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Id */
+            id: string;
+            /** Index Error Code */
+            index_error_code: string | null;
+            /** Index Status */
+            index_status: string | null;
+            /** Language */
+            language: string | null;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Transcript */
+            transcript: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** MemoOut */
+        MemoOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Document Id */
+            document_id: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Id */
+            id: string;
+            /** Index Error Code */
+            index_error_code: string | null;
+            /** Index Status */
+            index_status: string | null;
+            /** Language */
+            language: string | null;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** MemoUpdate */
+        MemoUpdate: {
+            /** Title */
+            title: string;
         };
         /** MemoryIn */
         MemoryIn: {
@@ -1211,6 +1423,66 @@ export interface components {
             remind_at?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /** TokenCreate */
+        TokenCreate: {
+            /**
+             * Expires In Days
+             * @default 90
+             */
+            expires_in_days: number;
+            /** Name */
+            name: string;
+            /** Scopes */
+            scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
+        };
+        /** TokenCreated */
+        TokenCreated: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Id */
+            id: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Scopes */
+            scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
+            /** Token */
+            token: string;
+            /** Token Prefix */
+            token_prefix: string;
+        };
+        /** TokenOut */
+        TokenOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Id */
+            id: string;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Name */
+            name: string;
+            /** Scopes */
+            scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
+            /** Token Prefix */
+            token_prefix: string;
         };
         /** UserCreate */
         UserCreate: {
@@ -1592,6 +1864,247 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_memos_api_v1_audio_memos_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoOut"][];
+                };
+            };
+        };
+    };
+    post_memo_api_v1_audio_memos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_post_memo_api_v1_audio_memos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_memo_api_v1_audio_memos__memo_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_memo_api_v1_audio_memos__memo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_memo_api_v1_audio_memos__memo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_memo_audio_api_v1_audio_memos__memo_id__audio_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_retry_api_v1_audio_memos__memo_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_memo_speech_api_v1_audio_memos__memo_id__speech_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -2879,6 +3392,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TaskOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tokens_api_v1_tokens_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenOut"][];
+                };
+            };
+        };
+    };
+    post_token_api_v1_tokens_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_token_api_v1_tokens__token_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

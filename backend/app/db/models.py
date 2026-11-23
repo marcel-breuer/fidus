@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, new_id
@@ -246,6 +246,29 @@ class Document(TimestampMixin, Base):
     chunk_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
 
+class Memo(TimestampMixin, Base):
+    """A recorded or uploaded voice memo. Its transcript lives in the linked `documents` row."""
+
+    __tablename__ = "memos"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'transcribing', 'ready', 'failed')", name="memo_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")
+    error_code: Mapped[str | None] = mapped_column(String(50))
+    audio_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(10))
+    document_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("documents.id", ondelete="SET NULL"), index=True
+    )
+    speech_key: Mapped[str | None] = mapped_column(String(255))
+
+
 class Chunk(Base):
     __tablename__ = "chunks"
     __table_args__ = (
@@ -284,6 +307,25 @@ class Invitation(TimestampMixin, Base):
     used_by: Mapped[str | None] = mapped_column(
         String(26), ForeignKey("users.id", ondelete="SET NULL")
     )
+
+
+class ApiToken(TimestampMixin, Base):
+    """Personal access token. Only the SHA-256 hash of the secret is stored."""
+
+    __tablename__ = "api_tokens"
+    __table_args__ = (CheckConstraint("cardinality(scopes) > 0", name="scopes_not_empty"),)
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    token_prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ModuleSetting(Base):

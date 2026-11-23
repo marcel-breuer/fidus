@@ -11,6 +11,10 @@ RUN python -m venv /opt/venv \
 
 FROM python:3.13-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH=/opt/venv/bin:$PATH
+# ffmpeg splits long recordings for the worker's transcription jobs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 10001 fidus \
     && useradd --system --uid 10001 --gid fidus --no-create-home fidus \
     && mkdir -p /data/files \

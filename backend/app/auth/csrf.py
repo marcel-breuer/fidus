@@ -14,6 +14,10 @@ _EXEMPT_PATHS = {"/api/v1/auth/login", "/api/v1/auth/register"}
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
+def _is_mcp_path(path: str) -> bool:
+    return path == "/mcp" or path.startswith("/mcp/")
+
+
 def _tokens_match(cookie_token: str | None, header_token: str | None) -> bool:
     if cookie_token is None or header_token is None:
         return False
@@ -50,6 +54,8 @@ async def csrf_middleware(
     if (
         request.method in _UNSAFE_METHODS
         and request.url.path not in _EXEMPT_PATHS
+        # /mcp authenticates with bearer tokens only and ignores session cookies.
+        and not _is_mcp_path(request.url.path)
         and COOKIE_NAME in request.cookies
         and not _tokens_match(
             request.cookies.get(CSRF_COOKIE_NAME), request.headers.get(CSRF_HEADER_NAME)
