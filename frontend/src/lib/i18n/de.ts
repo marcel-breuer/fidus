@@ -175,6 +175,8 @@ export const de: Record<MessageKey, string> = {
 	'chat.tool.search_conversations': 'Suche in Unterhaltungen',
 	'chat.tool.remember': 'Im Gedächtnis speichern',
 	'chat.tool.create_task': 'Aufgabe anlegen',
+	'chat.tool.create_file': 'Datei anlegen',
+	'chat.tool.update_file': 'Datei aktualisieren',
 	'chat.actionTitle': 'Der Assistent bittet um deine Zustimmung',
 	'chat.actionApprove': 'Bestätigen',
 	'chat.actionReject': 'Ablehnen',

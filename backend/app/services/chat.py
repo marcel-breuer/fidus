@@ -29,6 +29,7 @@ from app.services import (
     module_settings,
     usage,
 )
+from app.storage.base import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ async def run_chat_turn(
     *,
     embedder: EmbeddingProvider | None = None,
     web_search: WebSearchProvider | None = None,
+    storage: Storage | None = None,
 ) -> AsyncIterator[ChatStreamEvent]:
     current_time = now or datetime.now(UTC)
     normalized_title = " ".join(user_text.split())[:60]
@@ -163,6 +165,7 @@ async def run_chat_turn(
             await module_settings.enabled_module_keys(session),
             has_embedder=embedder is not None,
             has_web_search=web_search is not None,
+            has_storage=storage is not None,
         )
     system = build_system_prompt(remembered)
     history = build_history(rows)
@@ -200,7 +203,7 @@ async def run_chat_turn(
             for call in calls:
                 history.append(ChatMessage(role="assistant", content="", tool_call=call))
                 payload, status = await _handle_call(
-                    user, call, by_name, write_mode, sources, proposals, embedder, web_search,
+                    user, call, by_name, write_mode, sources, proposals, embedder, web_search, storage,
                 )
                 awaiting_user = awaiting_user or status == "awaiting_confirmation"
                 tool_log.append({"name": call.name, "status": status})
@@ -265,6 +268,7 @@ async def _handle_call(
     proposals: list[tuple[agent_tools.Tool, dict]],
     embedder: EmbeddingProvider | None,
     web_search: WebSearchProvider | None,
+    storage: Storage | None,
 ) -> tuple[dict, str]:
     """Run or defer one model-requested tool call. Returns the model-facing payload and a UI status."""
     tool = by_name.get(call.name)
@@ -277,15 +281,32 @@ async def _handle_call(
     if tool.write and write_mode == "ask":
         proposals.append((tool, arguments.model_dump(mode="json")))
         return {"status": "awaiting_user_confirmation"}, "awaiting_confirmation"
+    info: dict = {}
     try:
         async with user_session(user.id) as session:
+            info = session.info
             context = agent_tools.ToolContext(
-                user=user, session=session, embedder=embedder, web_search=web_search
+                user=user, session=session, embedder=embedder, web_search=web_search, storage=storage
             )
             output = await agent_tools.run_tool(context, tool, arguments)
     except agent_tools.ToolError as exc:
+        await _discard_blobs(info)
         return {"error": exc.code}, "error"
     except Exception:
         logger.warning("Tool %s failed", tool.name, exc_info=True)
+        await _discard_blobs(info)
         return {"error": "TOOL_FAILED"}, "error"
+    info.pop("file_storage_cleanup", None)
+    for callback in info.pop("after_commit", []):
+        try:
+            await callback()
+        except Exception:
+            logger.warning("Post-commit callback failed", exc_info=True)
     return _number(output, sources), "done"
+
+
+async def _discard_blobs(info: dict) -> None:
+    """A rolled-back tool call must not leave stored file content behind."""
+    for storage, key in info.pop("file_storage_cleanup", []):
+        if await storage.exists(key):
+            await storage.delete(key)

@@ -12,6 +12,8 @@ from app.auth.manager import current_active_user
 from app.db.models import AgentAction, AuditLog, Memory, User
 from app.modules.guard import require_module
 from app.services import agent_actions, agent_settings, audit, conversations, memories
+from app.storage.base import Storage
+from app.storage.deps import get_storage
 
 router = APIRouter(tags=["agent"], dependencies=[Depends(require_module("chat"))])
 
@@ -154,9 +156,11 @@ async def get_conversation_actions(
     ]
 
 
-async def _decide(session: AsyncSession, user: User, action_id: str, approve: bool) -> AgentActionOut:
+async def _decide(
+    session: AsyncSession, user: User, action_id: str, approve: bool, storage: Storage
+) -> AgentActionOut:
     try:
-        return AgentActionOut.from_model(await agent_actions.decide(session, user, action_id, approve))
+        return AgentActionOut.from_model(await agent_actions.decide(session, user, action_id, approve, storage))
     except agent_actions.ActionNotFound as exc:
         raise HTTPException(status_code=404, detail="ACTION_NOT_FOUND") from exc
     except agent_actions.ActionNotPending as exc:
@@ -168,8 +172,9 @@ async def approve_action(
     action_id: str,
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
 ) -> AgentActionOut:
-    return await _decide(session, user, action_id, True)
+    return await _decide(session, user, action_id, True, storage)
 
 
 @router.post("/agent/actions/{action_id}/reject", response_model=AgentActionOut)
@@ -177,8 +182,9 @@ async def reject_action(
     action_id: str,
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
 ) -> AgentActionOut:
-    return await _decide(session, user, action_id, False)
+    return await _decide(session, user, action_id, False, storage)
 
 
 @router.get("/agent/audit", response_model=list[AuditEntryOut])

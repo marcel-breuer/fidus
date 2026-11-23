@@ -13,7 +13,7 @@
 		type Conversation,
 		type StreamEvent
 	} from '$lib/api/chat';
-	import { actionSummary, decideAction, listActions, parseSources, safeHref, type AgentAction } from '$lib/api/agent';
+	import { actionSummary, decideAction, fileSourceHref, listActions, parseSources, safeHref, type AgentAction } from '$lib/api/agent';
 	import { renderMarkdown } from '$lib/markdown';
 	import { getT } from '$lib/i18n/context';
 	import { messages as catalogs, type MessageKey } from '$lib/i18n';
@@ -320,7 +320,7 @@
 													{#if href}<a {href} target="_blank" rel="noopener noreferrer">{source.title}</a>{:else}{source.title}{/if}
 												{:else if source.type === 'file'}
 													<span class="kind">{t('chat.sourceFile')}</span>
-													<a href="/files">{t('chat.sourceFilePassage', { name: source.file_name, position: source.position + 1, version: source.version })}</a>
+													<a href={fileSourceHref(source)}>{t('chat.sourceFilePassage', { name: source.file_name, position: source.position + 1, version: source.version })}</a>
 													<span class="snippet">{source.snippet}</span>
 												{:else}
 													<span class="kind">{t('chat.sourceConversation')}</span>
