@@ -9,8 +9,10 @@
 	.alert {
 		margin: 0;
 		padding: 0.6rem 0.8rem;
-		border-left: 3px solid var(--danger);
+		border: 1px solid var(--danger);
+		border-radius: 0.625rem;
 		background: var(--danger-bg);
+		color: var(--ink);
 		font-size: 0.9rem;
 	}
 </style>

@@ -11,7 +11,7 @@
 
 <div class="field">
 	<label for={id}>{label}</label>
-	<input {id} bind:value {...rest} />
+	<input class="glass-control" {id} bind:value {...rest} />
 </div>
 
 <style>
@@ -26,9 +26,5 @@
 	input {
 		font: inherit;
 		padding: 0.6rem 0.7rem;
-		border: 1px solid var(--line);
-		border-radius: 6px;
-		background: var(--surface);
-		color: var(--ink);
 	}
 </style>
