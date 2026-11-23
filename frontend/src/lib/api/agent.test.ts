@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionSummary, parseSources, safeHref } from './agent';
+import { actionSummary, fileSourceHref, parseSources, safeHref } from './agent';
 
 describe('safeHref', () => {
 	it('allows http and https only', () => {
@@ -27,6 +27,18 @@ describe('parseSources', () => {
 	it('treats missing or malformed citations as empty', () => {
 		expect(parseSources(null)).toEqual([]);
 		expect(parseSources({ items: [] })).toEqual([]);
+	});
+});
+
+describe('file actions and citations', () => {
+	it('summarises file writes with the name and a short preview', () => {
+		expect(actionSummary({ tool: 'create_file', arguments: { name: 'a.md', content: 'Hello\n\nworld' } })).toBe('a.md: Hello world');
+		expect(actionSummary({ tool: 'update_file', arguments: { node_id: 'n1', content: 'x'.repeat(300) } })).toBe('x'.repeat(120) + '…');
+	});
+
+	it('links a file citation to its folder', () => {
+		expect(fileSourceHref({ folder_id: null })).toBe('/files');
+		expect(fileSourceHref({ folder_id: 'a b' })).toBe('/files?folder=a%20b');
 	});
 });
 

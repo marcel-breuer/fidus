@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AgentAction, User
 from app.services import agent_tools, module_settings
+from app.storage.base import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,9 @@ async def list_for_conversation(session: AsyncSession, user: User, conversation_
     )).all())
 
 
-async def decide(session: AsyncSession, user: User, action_id: str, approve: bool) -> AgentAction:
+async def decide(
+    session: AsyncSession, user: User, action_id: str, approve: bool, storage: Storage | None = None
+) -> AgentAction:
     """Run (approve) or discard (reject) a pending action. Only the owner can decide, once."""
     action = await session.scalar(
         select(AgentAction)
@@ -66,7 +69,8 @@ async def decide(session: AsyncSession, user: User, action_id: str, approve: boo
             arguments = tool.input_model.model_validate(action.arguments)
             # The savepoint keeps a failed tool from discarding the recorded decision.
             async with session.begin_nested():
-                await agent_tools.run_tool(agent_tools.ToolContext(user=user, session=session), tool, arguments)
+                context = agent_tools.ToolContext(user=user, session=session, storage=storage)
+                await agent_tools.run_tool(context, tool, arguments)
             action.status = "approved"
         except (ValidationError, agent_tools.ToolError):
             pass

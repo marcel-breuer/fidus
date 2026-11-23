@@ -15,9 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.providers import EmbeddingProvider, ToolSpec, WebSearchProvider
 from app.db.models import User
-from app.services import audit, conversations, memories, retrieval, tasks
+from app.services import audit, conversations, files, memories, retrieval, tasks
+from app.storage.base import Storage, StorageTooLarge
 
 MAX_WEB_ANSWER_CHARACTERS = 4000
+MAX_FILE_CHARACTERS = 200_000
 
 
 class ToolError(Exception):
@@ -34,6 +36,7 @@ class ToolContext:
     session: AsyncSession
     embedder: EmbeddingProvider | None = None
     web_search: WebSearchProvider | None = None
+    storage: Storage | None = None
 
 
 @dataclass
@@ -56,7 +59,7 @@ class Tool:
     handler: Handler
     write: bool = False
     module: str | None = None
-    needs: str | None = None  # "web_search" or "embedder"
+    needs: str | None = None  # "web_search", "embedder" or "storage"
 
     def spec(self) -> ToolSpec:
         return ToolSpec(self.name, self.description, self.input_model.model_json_schema())
@@ -76,12 +79,28 @@ class CreateTaskInput(BaseModel):
     due_at: datetime | None = Field(default=None, description="ISO 8601 date and time with offset")
 
 
+class CreateFileInput(BaseModel):
+    name: str = Field(
+        min_length=1, max_length=255, description="File name ending in .txt, .md or .markdown; no folders"
+    )
+    content: str = Field(min_length=1, max_length=MAX_FILE_CHARACTERS)
+    folder_id: str | None = Field(default=None, max_length=26, description="Existing folder id; omit for the root")
+
+
+class UpdateFileInput(BaseModel):
+    node_id: str = Field(min_length=1, max_length=26, description="Id of an existing text or markdown file")
+    content: str = Field(min_length=1, max_length=MAX_FILE_CHARACTERS, description="The complete new content")
+
+
 async def _search_knowledge(ctx: ToolContext, args: SearchInput) -> ToolOutput:
     assert ctx.embedder is not None
     hits = await retrieval.search_knowledge(ctx.session, ctx.user, args.query, ctx.embedder)
     return ToolOutput(
         data={"results": [
-            {"file": hit.file_name, "version": hit.version, "passage": hit.snippet} for hit in hits
+            {
+                "file": hit.file_name, "node_id": hit.node_id, "folder_id": hit.folder_id,
+                "version": hit.version, "passage": hit.snippet,
+            } for hit in hits
         ]},
         sources=[{
             "type": "file", "file_name": hit.file_name, "node_id": hit.node_id, "folder_id": hit.folder_id,
@@ -128,6 +147,29 @@ async def _create_task(ctx: ToolContext, args: CreateTaskInput) -> ToolOutput:
     return ToolOutput(data={"created": True}, target=("task", task.id))
 
 
+async def _write_file(
+    ctx: ToolContext, args: CreateFileInput | UpdateFileInput
+) -> ToolOutput:
+    assert ctx.storage is not None
+    try:
+        if isinstance(args, CreateFileInput):
+            node, version = await files.create_text_file(
+                ctx.session, ctx.storage, ctx.user, args.folder_id, args.name, args.content
+            )
+        else:
+            node, version = await files.update_text_file(
+                ctx.session, ctx.storage, ctx.user, args.node_id, args.content
+            )
+    except files.FilesError as exc:
+        raise ToolError(exc.code) from exc
+    except StorageTooLarge as exc:
+        raise ToolError("FILE_TOO_LARGE") from exc
+    return ToolOutput(
+        data={"saved": True, "node_id": node.id, "file": node.name, "version": version.version},
+        target=("file", node.id),
+    )
+
+
 REGISTRY: dict[str, Tool] = {tool.name: tool for tool in (
     Tool(
         "search_knowledge", "Search the user's uploaded files for relevant passages.",
@@ -149,14 +191,25 @@ REGISTRY: dict[str, Tool] = {tool.name: tool for tool in (
         "create_task", "Create a task for the user, optionally with notes and a due date.",
         CreateTaskInput, _create_task, write=True, module="tasks",
     ),
+    Tool(
+        "create_file",
+        "Create a new text or markdown file (.txt, .md, .markdown) in the user's files, optionally in a folder. "
+        "Fails if the name is taken.",
+        CreateFileInput, _write_file, write=True, module="files", needs="storage",
+    ),
+    Tool(
+        "update_file",
+        "Save a new version of an existing text or markdown file by its node_id, replacing the content.",
+        UpdateFileInput, _write_file, write=True, module="files", needs="storage",
+    ),
 )}
 
 
 def available_tools(
-    enabled_modules: set[str], *, has_embedder: bool, has_web_search: bool
+    enabled_modules: set[str], *, has_embedder: bool, has_web_search: bool, has_storage: bool = False
 ) -> list[Tool]:
     """Registered tools whose module is enabled and whose provider exists."""
-    capabilities = {"embedder": has_embedder, "web_search": has_web_search}
+    capabilities = {"embedder": has_embedder, "web_search": has_web_search, "storage": has_storage}
     return [
         tool for tool in REGISTRY.values()
         if (tool.module is None or tool.module in enabled_modules)

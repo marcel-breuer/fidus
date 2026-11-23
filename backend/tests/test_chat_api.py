@@ -90,7 +90,8 @@ async def test_chat_turn_persists_messages_usage_history_and_title(
         ("user", "  Help me   plan this  "),
     ]
     assert {tool.name for tool in request.tools} == {
-        "search_knowledge", "search_conversations", "web_search", "remember", "create_task"
+        "search_knowledge", "search_conversations", "web_search", "remember", "create_task",
+        "create_file", "update_file",
     }
 
 

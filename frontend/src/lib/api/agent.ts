@@ -95,8 +95,25 @@ export function parseSources(value: unknown): SourceReference[] {
 	return result.sort((a, b) => a.ref - b.ref);
 }
 
+/** Where a file citation leads: the folder that holds the file, or the file root. */
+export function fileSourceHref(source: { folder_id: string | null }): string {
+	return source.folder_id ? `/files?folder=${encodeURIComponent(source.folder_id)}` : '/files';
+}
+
+const SUMMARY_PREVIEW_LENGTH = 120;
+
+function preview(text: string): string {
+	const flat = text.replace(/\s+/g, ' ').trim();
+	return flat.length > SUMMARY_PREVIEW_LENGTH ? `${flat.slice(0, SUMMARY_PREVIEW_LENGTH)}…` : flat;
+}
+
 export function actionSummary(action: Pick<AgentAction, 'tool' | 'arguments'>): string {
 	const args = action.arguments as Record<string, unknown>;
+	if (action.tool === 'create_file' || action.tool === 'update_file') {
+		const content = typeof args.content === 'string' ? preview(args.content) : '';
+		const name = typeof args.name === 'string' ? args.name : '';
+		return [name, content].filter(Boolean).join(': ');
+	}
 	const text = action.tool === 'remember' ? args.content : args.title;
 	return typeof text === 'string' ? text : '';
 }

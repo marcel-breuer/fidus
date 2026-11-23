@@ -15,6 +15,8 @@ from app.db.models import Conversation, Message, User
 from app.modules.guard import require_module
 from app.services import chat as chat_service
 from app.services import conversations as service
+from app.storage.base import Storage
+from app.storage.deps import get_storage
 
 router = APIRouter(
     tags=["conversations"],
@@ -137,9 +139,10 @@ async def stream_message(
     provider: ChatProvider = Depends(get_chat_provider),
     embedder: EmbeddingProvider = Depends(get_embedding_provider),
     web_search: WebSearchProvider | None = Depends(get_web_search_provider),
+    storage: Storage = Depends(get_storage),
 ) -> StreamingResponse:
     events = chat_service.run_chat_turn(
-        user, conversation_id, body.content, provider, embedder=embedder, web_search=web_search
+        user, conversation_id, body.content, provider, embedder=embedder, web_search=web_search, storage=storage
     )
     try:
         initial = await events.__anext__()

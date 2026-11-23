@@ -173,6 +173,8 @@ export const en = {
 	'chat.tool.search_conversations': 'Conversation search',
 	'chat.tool.remember': 'Save to memory',
 	'chat.tool.create_task': 'Create task',
+	'chat.tool.create_file': 'Create file',
+	'chat.tool.update_file': 'Update file',
 	'chat.actionTitle': 'The assistant asks for your approval',
 	'chat.actionApprove': 'Confirm',
 	'chat.actionReject': 'Decline',
