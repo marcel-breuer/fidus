@@ -6,8 +6,7 @@ from alembic import op
 from app.config import get_settings
 
 revision = "0010"
-# Chained after 0008 while 0009 is developed in parallel; the merge fixes the chain.
-down_revision = "0008"
+down_revision = "0009"
 branch_labels = None
 depends_on = None
 

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.agent import router as agent_router
 from app.api.audio import router as audio_router
 from app.api.conversations import router as conversations_router
 from app.api.deps import get_user_scoped_session
@@ -33,6 +34,7 @@ from app.services.sessions import revoke_all_sessions
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(conversations_router)
+router.include_router(agent_router)
 
 
 class HealthOut(BaseModel):

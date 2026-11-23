@@ -5,7 +5,16 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from app.ai.config import get_model_config
-from app.ai.providers import ChatEvent, ChatRequest, Completed, TextDelta, ToolCall, Usage
+from app.ai.providers import (
+    ChatEvent,
+    ChatRequest,
+    Completed,
+    TextDelta,
+    ToolCall,
+    Usage,
+    WebSearchResult,
+    WebSource,
+)
 
 
 class OpenAIChatProvider:
@@ -13,14 +22,33 @@ class OpenAIChatProvider:
         self.client = client
 
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatEvent]:
-        input_items: list[dict[str, str]] = []
+        input_items: list[dict[str, Any]] = []
         if request.system is not None:
             input_items.append({"role": "system", "content": request.system})
-        input_items.extend({"role": item.role, "content": item.content} for item in request.messages)
+        for item in request.messages:
+            if item.tool_call is not None:
+                input_items.append({
+                    "type": "function_call", "call_id": item.tool_call.id,
+                    "name": item.tool_call.name, "arguments": item.tool_call.arguments_json,
+                })
+            elif item.role == "tool":
+                input_items.append({
+                    "type": "function_call_output", "call_id": item.tool_call_id, "output": item.content,
+                })
+            else:
+                input_items.append({"role": item.role, "content": item.content})
+        options: dict[str, Any] = {}
+        if request.tools:
+            options["tools"] = [
+                {"type": "function", "name": tool.name, "description": tool.description,
+                 "parameters": tool.parameters}
+                for tool in request.tools
+            ]
         response = await self.client.responses.create(
             model=get_model_config().chat,
             input=input_items,
             stream=True,
+            **options,
         )
         async for event in response:
             event_type = getattr(event, "type", None)
@@ -148,3 +176,35 @@ def create_openai_speech_provider(api_key: str) -> OpenAISpeechProvider:
     from openai import AsyncOpenAI
 
     return OpenAISpeechProvider(AsyncOpenAI(api_key=api_key))
+class OpenAIWebSearch:
+    """Web search through the Responses API `web_search` tool, with an injected client."""
+
+    def __init__(self, client: Any) -> None:
+        self.client = client
+
+    async def search(self, query: str) -> WebSearchResult:
+        response = await self.client.responses.create(
+            model=get_model_config().chat,
+            input=query,
+            tools=[{"type": "web_search"}],
+        )
+        answer_parts: list[str] = []
+        sources: dict[str, WebSource] = {}
+        for item in getattr(response, "output", None) or []:
+            if getattr(item, "type", None) != "message":
+                continue
+            for part in getattr(item, "content", None) or []:
+                if getattr(part, "type", None) != "output_text":
+                    continue
+                answer_parts.append(getattr(part, "text", "") or "")
+                for annotation in getattr(part, "annotations", None) or []:
+                    url = getattr(annotation, "url", None)
+                    if getattr(annotation, "type", None) == "url_citation" and url and url not in sources:
+                        sources[url] = WebSource(title=getattr(annotation, "title", None) or url, url=url)
+        return WebSearchResult(answer="\n".join(answer_parts).strip(), sources=list(sources.values()))
+
+
+def create_openai_web_search(api_key: str) -> OpenAIWebSearch:
+    from openai import AsyncOpenAI
+
+    return OpenAIWebSearch(AsyncOpenAI(api_key=api_key))

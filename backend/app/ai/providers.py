@@ -4,9 +4,21 @@ from typing import Protocol
 
 
 @dataclass(frozen=True)
+class ToolCall:
+    id: str
+    name: str
+    arguments_json: str
+
+
+@dataclass(frozen=True)
 class ChatMessage:
+    """A history item. An assistant item may echo a `tool_call`; a `tool` item answers
+    one through `tool_call_id` and carries the tool output as content."""
+
     role: str
     content: str
+    tool_call: ToolCall | None = None
+    tool_call_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -26,13 +38,6 @@ class ChatRequest:
 @dataclass(frozen=True)
 class TextDelta:
     text: str
-
-
-@dataclass(frozen=True)
-class ToolCall:
-    id: str
-    name: str
-    arguments_json: str
 
 
 @dataclass(frozen=True)
@@ -65,3 +70,19 @@ class SpeechProvider(Protocol):
     async def synthesize(self, text: str) -> bytes:
         """Return a complete WAV file (24 kHz, 16-bit, mono) speaking `text` verbatim."""
         ...
+@dataclass(frozen=True)
+class WebSource:
+    title: str
+    url: str
+
+
+@dataclass(frozen=True)
+class WebSearchResult:
+    answer: str
+    sources: list[WebSource]
+
+
+class WebSearchProvider(Protocol):
+    """Web search behind a service boundary. Results are untrusted content."""
+
+    async def search(self, query: str) -> WebSearchResult: ...
