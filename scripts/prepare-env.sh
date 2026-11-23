@@ -23,6 +23,7 @@ fi
 
 secret_key=$(openssl rand -hex 32)
 db_password=$(openssl rand -hex 32)
+app_db_password=$(openssl rand -hex 32)
 temporary_file=$(mktemp "$repo_root/.env.XXXXXX")
 trap 'rm -f "$temporary_file"' EXIT HUP INT TERM
 
@@ -30,6 +31,7 @@ umask 077
 sed \
     -e "s|^SECRET_KEY=.*|SECRET_KEY=$secret_key|" \
     -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$db_password|" \
+    -e "s|^APP_DB_PASSWORD=.*|APP_DB_PASSWORD=$app_db_password|" \
     "$example_file" > "$temporary_file"
 chmod 600 "$temporary_file"
 mv "$temporary_file" "$env_file"

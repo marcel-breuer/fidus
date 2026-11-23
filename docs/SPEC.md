@@ -24,6 +24,9 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Architecture | See [architecture/overview.md](architecture/overview.md) |
 | Reminders | In-app only (no e-mail, no push) |
 
+## Implementation status
+Implemented: Docker Compose stack, authentication with registration modes, module registry and sidebar, row-level security with an example `tasks` table, worker with an example job, German and English UI shell. Everything under "MVP scope" below is still to build; see [architecture/overview.md](architecture/overview.md) section 0 for the details and known gaps.
+
 ## MVP scope
 
 ### Chat module
