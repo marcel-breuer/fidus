@@ -7,6 +7,7 @@ export const en = {
 	'nav.admin': 'Administration',
 	'nav.empty': 'No modules are available.',
 	'nav.logout': 'Sign out',
+	'nav.logoutAll': 'Sign out everywhere',
 	'nav.language': 'Language',
 	'nav.signedInAs': 'Signed in as {email}',
 	'language.en': 'English',

@@ -16,8 +16,8 @@ async def count_open_tasks(user_id: str) -> int:
     return int(result or 0)
 
 
-@broker.task(task_name="sessions.purge_expired")
+@broker.task(task_name="sessions.purge_expired", schedule=[{"cron": "15 3 * * *"}])
 async def purge_expired_auth_sessions() -> int:
-    """Remove expired sessions; this job has no scheduler wiring yet."""
+    """Remove expired sessions once per day at 03:15 UTC."""
     async with get_sessionmaker()() as session, session.begin():
         return await purge_expired_sessions(session)

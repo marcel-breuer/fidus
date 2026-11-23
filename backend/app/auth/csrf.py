@@ -60,6 +60,9 @@ async def csrf_middleware(
     response = await call_next(request)
     if request.url.path == "/api/v1/auth/login" and response.status_code < 300:
         _set_csrf_cookie(response, secrets.token_urlsafe(32))
-    elif request.url.path == "/api/v1/auth/logout" and response.status_code < 300:
+    elif (
+        request.url.path in {"/api/v1/auth/logout", "/api/v1/auth/logout-all"}
+        and response.status_code < 300
+    ):
         _clear_csrf_cookie(response)
     return response
