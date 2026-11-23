@@ -19,7 +19,8 @@ Do not invent requirements. On conflicting instructions, report the conflict and
 4. **Agent actions are permission-bound.** Only typed, registered server-side tools; no model-provided raw SQL or arbitrary command execution. Writes by the agent (files, tasks) are attributed to the user and auditable.
 5. **Modules are independent.** A module must not depend unconditionally on another module. Backend registry, API and sidebar enforce the same module policy.
 6. **No private deployments in git.** No real hostnames, credentials, server paths or unrelated project references. Use placeholders and environment variables.
-7. **Do not claim unimplemented behavior.** Docs and PRs describe only what exists.
+7. **One service layer, many adapters.** REST routes, the chat agent and MCP tools call the same typed service operations; permissions, scopes, quotas and audit live in the services, not in adapters. See [architecture](docs/architecture/overview.md).
+8. **Do not claim unimplemented behavior.** Docs and PRs describe only what exists.
 
 ## Architecture
 - Backend: Python, FastAPI, SQLAlchemy (async), Alembic, fastapi-users, pytest. Business logic lives in services, not in route handlers.

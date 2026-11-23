@@ -13,7 +13,10 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Models | OpenAI only, one `OPENAI_API_KEY`; chat, transcription, embeddings, TTS and web search models are fixed in a config file, not chosen at runtime |
 | i18n | UI in German and English from the start; code, docs and repo in English |
 | License | MIT |
-| Deployment | Docker Compose (db, backend, worker, frontend) |
+| Deployment | Docker Compose (gateway, frontend, backend, worker, db); local via `./start.sh` or on an own server behind TLS |
+| Clients | Web UI first; native apps (macOS, iOS, iPadOS, Windows) later as API clients |
+| Integrations | Versioned REST API (`/api/v1`) and an MCP server (`/mcp`) over the same service layer |
+| Architecture | See [architecture/overview.md](architecture/overview.md) |
 | Reminders | In-app only (no e-mail, no push) |
 
 ## MVP scope
@@ -39,12 +42,17 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 - To-do list with due date and in-app reminder (`remind_at`)
 - Due reminders are surfaced in the UI
 
+### API and MCP
+- Every capability is a typed service operation exposed through REST, the chat agent and MCP
+- Personal access tokens with scopes for integrations; OAuth for native apps later
+
 ### Module system
 - Backend module registry and sidebar entries are generated from it
 - Later modules (e.g. calendar) plug in without changing the core
 
 ## Out of scope for the MVP
 - Multiple LLM providers, per-user model selection
+- Native apps and offline synchronization (the API prepares a change feed)
 - E-mail or push reminders
 - Calendar integration
 

@@ -14,6 +14,7 @@ cd fidus
 
 ## Documentation
 - [Specification](docs/SPEC.md)
+- [Architecture](docs/architecture/overview.md)
 - [Contributing](CONTRIBUTING.md)
 - [Repository rules](AGENTS.md)
 - [Releases](docs/releases.md)
