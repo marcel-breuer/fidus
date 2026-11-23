@@ -34,8 +34,8 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ["REGISTRATION_MODE"] = "open"
 os.environ["APP_URL"] = "http://localhost:8080"
 
-from app.ai.deps import get_chat_provider, get_embedding_provider  # noqa: E402
-from app.ai.fakes import FakeChatProvider, KeywordEmbeddingProvider  # noqa: E402
+from app.ai.deps import get_chat_provider, get_embedding_provider, get_web_search_provider  # noqa: E402
+from app.ai.fakes import FakeChatProvider, FakeWebSearchProvider, KeywordEmbeddingProvider  # noqa: E402
 from app.ai.providers import Completed, TextDelta, Usage  # noqa: E402
 from app.auth.rate_limit import get_redis  # noqa: E402
 from app.config import get_settings  # noqa: E402
@@ -143,10 +143,16 @@ def chat_provider() -> FakeChatProvider:
     return FakeChatProvider([TextDelta("Hello"), Completed(Usage(4, 2))])
 
 
+@pytest.fixture
+def web_search() -> FakeWebSearchProvider:
+    return FakeWebSearchProvider()
+
+
 @pytest_asyncio.fixture
 async def client(
     rate_limit_store: InMemoryRateLimitStore,
     chat_provider: FakeChatProvider,
+    web_search: FakeWebSearchProvider,
     memory_storage: MemoryStorage,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[httpx.AsyncClient]:
@@ -154,6 +160,7 @@ async def client(
     app.dependency_overrides[get_redis] = lambda: rate_limit_store  # type: ignore[assignment]
     app.dependency_overrides[get_chat_provider] = lambda: chat_provider
     app.dependency_overrides[get_embedding_provider] = lambda: KeywordEmbeddingProvider()
+    app.dependency_overrides[get_web_search_provider] = lambda: web_search
     app.dependency_overrides[get_storage] = lambda: memory_storage
     async def skip_index_queue(user_id: str, document_id: str) -> None:
         return None

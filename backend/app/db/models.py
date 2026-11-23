@@ -108,6 +108,74 @@ class Message(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Memory(TimestampMixin, Base):
+    """Durable fact about the user, visible to and editable by the owner."""
+
+    __tablename__ = "memories"
+    __table_args__ = (CheckConstraint("source IN ('user', 'agent')", name="source"),)
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    content: Mapped[str] = mapped_column(String(1000), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="user", server_default="user")
+
+
+class AgentSetting(TimestampMixin, Base):
+    """Per-user agent policy: ask before writes (default) or allow them."""
+
+    __tablename__ = "agent_settings"
+    __table_args__ = (CheckConstraint("write_mode IN ('ask', 'allow')", name="write_mode"),)
+
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    write_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="ask", server_default="ask")
+
+
+class AgentAction(TimestampMixin, Base):
+    """A write requested by the agent that waits for the user's decision."""
+
+    __tablename__ = "agent_actions"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'approved', 'rejected', 'failed')", name="status"),
+        Index("ix_agent_actions_conversation", "user_id", "conversation_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    conversation_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str | None] = mapped_column(String(26), ForeignKey("messages.id", ondelete="CASCADE"))
+    tool: Mapped[str] = mapped_column(String(64), nullable=False)
+    arguments: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", server_default="pending")
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuditLog(Base):
+    """Append-only record of writes made by the agent on behalf of a user."""
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    actor: Mapped[str] = mapped_column(String(20), nullable=False)
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_id: Mapped[str | None] = mapped_column(String(26))
+    details: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class Node(TimestampMixin, Base):
     """User-owned folder or file in the Files tree."""
 

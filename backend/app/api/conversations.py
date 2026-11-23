@@ -7,8 +7,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.deps import get_chat_provider
-from app.ai.providers import ChatProvider
+from app.ai.deps import get_chat_provider, get_embedding_provider, get_web_search_provider
+from app.ai.providers import ChatProvider, EmbeddingProvider, WebSearchProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
 from app.db.models import Conversation, Message, User
@@ -107,6 +107,15 @@ async def _chat_events(
                 })
             elif isinstance(current, chat_service.Delta):
                 yield _sse("delta", {"text": current.text})
+            elif isinstance(current, chat_service.ToolStatus):
+                yield _sse("tool", {"name": current.name, "status": current.status})
+            elif isinstance(current, chat_service.SourcesFound):
+                yield _sse("citations", {"items": current.items})
+            elif isinstance(current, chat_service.ActionProposed):
+                yield _sse("action", {
+                    "id": current.id, "tool": current.tool,
+                    "arguments": current.arguments, "status": current.status,
+                })
             elif isinstance(current, chat_service.Done):
                 yield _sse("done", {"message_id": current.message_id, "title": current.title})
             else:
@@ -126,8 +135,12 @@ async def stream_message(
     body: ChatMessageCreate,
     user: User = Depends(current_active_user),
     provider: ChatProvider = Depends(get_chat_provider),
+    embedder: EmbeddingProvider = Depends(get_embedding_provider),
+    web_search: WebSearchProvider | None = Depends(get_web_search_provider),
 ) -> StreamingResponse:
-    events = chat_service.run_chat_turn(user, conversation_id, body.content, provider)
+    events = chat_service.run_chat_turn(
+        user, conversation_id, body.content, provider, embedder=embedder, web_search=web_search
+    )
     try:
         initial = await events.__anext__()
     except chat_service.NotFound as exc:
