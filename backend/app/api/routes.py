@@ -16,13 +16,13 @@ from app.auth.schemas import UserCreate, UserRead
 from app.db.models import User
 from app.db.session import system_session
 from app.modules.registry import ALL_SCOPES, modules_for_scopes
+from app.services.invitations import create_invitation, list_invitations, revoke_invitation
 from app.services.module_settings import (
     UnknownModuleError,
     enabled_module_keys,
     list_effective_settings,
     set_enabled,
 )
-from app.services.invitations import create_invitation, list_invitations, revoke_invitation
 
 router = APIRouter(prefix="/api/v1")
 

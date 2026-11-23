@@ -61,7 +61,7 @@ async def test_unknown_module_and_invalid_request_are_rejected(client: httpx.Asy
     await _create_admin(client)
     unknown = await client.put("/api/v1/admin/modules/not-a-module", json={"enabled": False})
     assert unknown.status_code == 404
-    malformed = await client.put("/api/v1/admin/modules/tasks", json={"enabled": "no"})
+    malformed = await client.put("/api/v1/admin/modules/tasks", json={"enabled": "maybe"})
     assert malformed.status_code == 422
 
 

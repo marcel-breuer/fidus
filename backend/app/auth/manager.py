@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers
-from fastapi_users.authentication import AuthenticationBackend, CookieTransport, JWTStrategy
+from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.db import SQLAlchemyUserDatabase
 from fastapi_users.exceptions import UserAlreadyExists
 from sqlalchemy import func, select, text
@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.schemas import UserCreate
+from app.auth.sessions import DatabaseSessionStrategy
 from app.config import get_settings
 from app.db.base import new_id
 from app.db.models import User
@@ -102,9 +103,8 @@ async def get_user_manager(
     yield UserManager(user_db)
 
 
-def _strategy() -> JWTStrategy[User, str]:
-    settings = get_settings()
-    return JWTStrategy(secret=settings.secret_key, lifetime_seconds=settings.session_lifetime_seconds)
+def _strategy() -> DatabaseSessionStrategy:
+    return DatabaseSessionStrategy()
 
 
 def _transport() -> CookieTransport:

@@ -8,8 +8,8 @@ import sqlalchemy as sa
 from alembic import op
 from app.config import get_settings
 
-revision = "0003m"
-down_revision = "0002"
+revision = "0004"
+down_revision = "0003"
 branch_labels = None
 depends_on = None
 
