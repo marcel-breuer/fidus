@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.agent import router as agent_router
+from app.api.audio import router as audio_router
 from app.api.conversations import router as conversations_router
 from app.api.deps import get_user_scoped_session
 from app.api.files import router as files_router
@@ -196,6 +197,7 @@ router.include_router(
 )
 router.include_router(tasks_router)
 router.include_router(files_router)
+router.include_router(audio_router)
 router.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
     prefix="/auth",

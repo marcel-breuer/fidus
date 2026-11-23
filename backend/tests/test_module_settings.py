@@ -23,23 +23,23 @@ async def test_module_settings_default_enabled_disable_reenable_and_admin_access
 ) -> None:
     await _create_admin(client)
     assert [module["key"] for module in (await client.get("/api/v1/admin/modules")).json()] == [
-        "chat", "files", "tasks"
+        "chat", "files", "tasks", "audio"
     ]
     initial = await client.get("/api/v1/modules")
-    assert [module["key"] for module in initial.json()] == ["chat", "files", "tasks"]
+    assert [module["key"] for module in initial.json()] == ["chat", "files", "tasks", "audio"]
 
     disabled = await client.put("/api/v1/admin/modules/files", json={"enabled": False})
     assert disabled.status_code == 200
     assert disabled.json() == {"key": "files", "name_key": "modules.files", "enabled": False}
     assert [module["key"] for module in (await client.get("/api/v1/modules")).json()] == [
-        "chat", "tasks"
+        "chat", "tasks", "audio"
     ]
 
     member = await register(client, "member@example.com")
     assert member.status_code == 201
     await _login(client, "member@example.com")
     assert [module["key"] for module in (await client.get("/api/v1/modules")).json()] == [
-        "chat", "tasks"
+        "chat", "tasks", "audio"
     ]
     assert (await client.get("/api/v1/admin/modules")).status_code == 403
     assert (await client.put("/api/v1/admin/modules/files", json={"enabled": True})).status_code == 403
@@ -48,7 +48,7 @@ async def test_module_settings_default_enabled_disable_reenable_and_admin_access
     enabled = await client.put("/api/v1/admin/modules/files", json={"enabled": True})
     assert enabled.status_code == 200
     assert [module["key"] for module in (await client.get("/api/v1/modules")).json()] == [
-        "chat", "files", "tasks"
+        "chat", "files", "tasks", "audio"
     ]
 
 

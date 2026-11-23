@@ -25,7 +25,7 @@ async def test_modules_list_for_authenticated_user(client: httpx.AsyncClient) ->
     response = await client.get("/api/v1/modules")
     assert response.status_code == 200
     modules = response.json()
-    assert [m["key"] for m in modules] == ["chat", "files", "tasks"]
+    assert [m["key"] for m in modules] == ["chat", "files", "tasks", "audio"]
     assert modules[0]["name_key"] == "modules.chat"
     assert all({"icon", "route", "scopes"} <= m.keys() for m in modules)
 

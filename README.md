@@ -2,7 +2,7 @@
 
 Open-source, self-hostable personal assistant: a chat interface with a growing set of modules (chat, files, tasks, later calendar). Multi-user, FastAPI + SvelteKit + PostgreSQL/pgvector, powered by a single OpenAI API key.
 
-Status: early development. The app includes sign-up and sign-in, the module sidebar, row-level security, a background worker, Tasks with reminders, chat Stages 1–3 (streaming chat with memories, web search, citations and confirmed agent actions), and Files Stages 1–2 (folder and file browser, versioned uploads, downloads, indexing and hybrid search). File blobs are stored in the persistent `files_data` Docker volume; include it in backups alongside the database. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
+Status: early development. The app includes sign-up and sign-in, the module sidebar, row-level security, a background worker, Tasks with reminders, chat Stages 1–3 (streaming chat with memories, web search, citations and confirmed agent actions), Files Stages 1–2 (folder and file browser, versioned uploads, downloads, indexing and hybrid search) and the audio module (recording or upload, transcription in the worker with ffmpeg, searchable transcripts, read-aloud). File blobs are stored in the persistent `files_data` Docker volume; include it in backups alongside the database. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
 
 ## Quick start
 ```sh
