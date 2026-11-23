@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, Response
 from redis.asyncio import Redis
 
 from app.api.routes import router
+from app.auth.csrf import csrf_middleware
 from app.auth.manager import RegistrationClosedError
 from app.config import get_settings
 from app.db.session import dispose_engine
@@ -40,13 +41,12 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def reject_cross_origin_writes(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
-        # Cookie sessions need CSRF protection. Browsers always send Origin on
-        # cross-site writes, so a foreign Origin is refused; clients without one
-        # (scripts, tests) are not browsers and carry no ambient cookies.
+        # Keep the Origin check as a defense in depth layer alongside the
+        # cookie-session double-submit token check.
         origin = request.headers.get("origin")
         if request.method in UNSAFE_METHODS and origin and origin != _origin(get_settings().app_url):
             return JSONResponse({"detail": "Cross-origin request refused"}, status_code=403)
-        return await call_next(request)
+        return await csrf_middleware(request, call_next)
 
     @app.exception_handler(RegistrationClosedError)
     async def registration_closed(_: Request, __: RegistrationClosedError) -> JSONResponse:

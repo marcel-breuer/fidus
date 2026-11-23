@@ -64,7 +64,9 @@ async def test_me_requires_authentication(client: httpx.AsyncClient) -> None:
 async def test_logout_clears_session(client: httpx.AsyncClient) -> None:
     await register(client, "user@example.com")
     await login(client, "user@example.com")
-    assert (await client.post("/api/v1/auth/logout")).status_code == 204
+    csrf_token = client.cookies.get("fidus_csrf")
+    assert csrf_token is not None
+    assert (await client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf_token})).status_code == 204
     client.cookies.clear()
     assert (await client.get("/api/v1/users/me")).status_code == 401
 

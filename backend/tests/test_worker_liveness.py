@@ -1,11 +1,11 @@
 import pytest
 
 from app.worker.liveness import (
-    HEARTBEAT_KEY,
     HEARTBEAT_INTERVAL_SECONDS,
+    HEARTBEAT_KEY,
     HEARTBEAT_TTL_SECONDS,
-    heartbeat_loop,
     heartbeat_is_fresh,
+    heartbeat_loop,
     refresh_heartbeat,
 )
 
