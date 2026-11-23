@@ -1489,6 +1489,8 @@
           "scopes": {
             "items": {
               "enum": [
+                "audio:read",
+                "audio:write",
                 "chat:use",
                 "files:read",
                 "files:write",
@@ -1544,6 +1546,8 @@
           "scopes": {
             "items": {
               "enum": [
+                "audio:read",
+                "audio:write",
                 "chat:use",
                 "files:read",
                 "files:write",
@@ -1612,6 +1616,8 @@
           "scopes": {
             "items": {
               "enum": [
+                "audio:read",
+                "audio:write",
                 "chat:use",
                 "files:read",
                 "files:write",

@@ -1333,7 +1333,7 @@ export interface components {
             /** Name */
             name: string;
             /** Scopes */
-            scopes: ("chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
+            scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
         };
         /** TokenCreated */
         TokenCreated: {
@@ -1354,7 +1354,7 @@ export interface components {
             /** Name */
             name: string;
             /** Scopes */
-            scopes: ("chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
+            scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
             /** Token */
             token: string;
             /** Token Prefix */
@@ -1379,7 +1379,7 @@ export interface components {
             /** Name */
             name: string;
             /** Scopes */
-            scopes: ("chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
+            scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
             /** Token Prefix */
             token_prefix: string;
         };

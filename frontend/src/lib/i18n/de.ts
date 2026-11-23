@@ -194,6 +194,8 @@ export const de: Record<MessageKey, string> = {
 	'tokens.scope.files:read': 'Dateien durchsuchen',
 	'tokens.scope.files:write': 'Dateien ändern',
 	'tokens.scope.chat:use': 'Unterhaltungen durchsuchen',
+	'tokens.scope.audio:read': 'Sprachmemos lesen',
+	'tokens.scope.audio:write': 'Sprachmemos ändern',
 	'tokens.scopeRequired': 'Wähle mindestens eine Berechtigung.',
 	'tokens.create': 'Token erstellen',
 	'tokens.created': 'Kopiere dieses Token jetzt. Es wird nur einmal angezeigt und lässt sich später nicht mehr abrufen.',

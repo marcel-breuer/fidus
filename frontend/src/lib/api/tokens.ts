@@ -10,7 +10,9 @@ export const TOKEN_SCOPES: readonly TokenScope[] = [
 	'tasks:write',
 	'files:read',
 	'files:write',
-	'chat:use'
+	'chat:use',
+	'audio:read',
+	'audio:write'
 ];
 export const DEFAULT_EXPIRY_DAYS = 90;
 export const MAX_EXPIRY_DAYS = 365;

@@ -15,7 +15,9 @@ from app.services import api_tokens
 router = APIRouter(tags=["tokens"])
 
 # Mirrors app.modules.registry.ALL_SCOPES; a test keeps the two in step.
-Scope = Literal["chat:use", "files:read", "files:write", "tasks:read", "tasks:write"]
+Scope = Literal[
+    "audio:read", "audio:write", "chat:use", "files:read", "files:write", "tasks:read", "tasks:write"
+]
 
 
 class TokenCreate(BaseModel):

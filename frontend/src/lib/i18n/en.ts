@@ -192,6 +192,8 @@ export const en = {
 	'tokens.scope.files:read': 'Search files',
 	'tokens.scope.files:write': 'Change files',
 	'tokens.scope.chat:use': 'Search conversations',
+	'tokens.scope.audio:read': 'Read audio memos',
+	'tokens.scope.audio:write': 'Change audio memos',
 	'tokens.scopeRequired': 'Select at least one permission.',
 	'tokens.create': 'Create token',
 	'tokens.created': 'Copy this token now. It is shown only once and cannot be retrieved later.',
