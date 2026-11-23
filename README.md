@@ -12,6 +12,9 @@ cd fidus
 ```
 `start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack, then prints the address (default `http://localhost:8080`). The first account you register becomes the admin. `REGISTRATION_MODE` (`open`, `invite-only`, `closed`) controls registration afterwards. Set `OPENAI_API_KEY` in `.env` before the assistant features arrive.
 
+### Behind a reverse proxy
+Set `TRUSTED_PROXIES` in `.env` to the comma-separated IPs or CIDRs of the proxy hops that connect to the gateway. Leave it empty when the gateway is directly exposed. The gateway resolves forwarded client addresses only through those trusted proxies.
+
 ## Development
 ```sh
 docker compose exec backend pytest                                   # backend tests

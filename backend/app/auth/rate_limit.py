@@ -5,6 +5,7 @@ from typing import Protocol
 from fastapi import Depends, HTTPException, Request
 from redis.asyncio import Redis
 
+from app.auth.client_ip import client_ip
 from app.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ async def enforce_auth_rate_limit(
         return
 
     settings = get_settings()
-    client_ip = request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
+    ip_address = client_ip(request)
     account = ""
     try:
         if account_field == "username":
@@ -67,7 +68,7 @@ async def enforce_auth_rate_limit(
     try:
         retry_after = await _consume(
             store,
-            _key("ip", client_ip, settings),
+            _key("ip", ip_address, settings),
             settings,
         )
         if account:
