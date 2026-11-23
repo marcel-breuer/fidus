@@ -1,39 +1,51 @@
-import { csrfHeaders } from './csrf';
+import { createApiClient } from './http';
+import type { components } from './schema';
 
-export type AdminModule = { key: string; name_key: string; enabled: boolean };
-export type AdminInvitation = { id: string; expires_at: string };
+export type AdminModule = components['schemas']['AdminModuleOut'];
+export type AdminInvitation = Pick<components['schemas']['InvitationOut'], 'id' | 'expires_at'>;
 export type CreatedInvitation = AdminInvitation & { token: string };
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(path, init);
+const api = createApiClient(fetch, '');
+
+function assertOk(response: Response): void {
 	if (!response.ok) throw new Error(`Admin request failed: ${response.status}`);
-	if (response.status === 204) return undefined as T;
-	return (await response.json()) as T;
 }
 
-export const getAdminModules = () => request<AdminModule[]>('/api/v1/admin/modules');
+export const getAdminModules = async (): Promise<AdminModule[]> => {
+	const { data, response } = await api.GET('/api/v1/admin/modules');
+	assertOk(response);
+	return data as AdminModule[];
+};
 
-export const setModuleEnabled = (key: string, enabled: boolean) =>
-	request<AdminModule>(`/api/v1/admin/modules/${encodeURIComponent(key)}`, {
-		method: 'PUT',
-		headers: { ...csrfHeaders(), 'content-type': 'application/json' },
-		body: JSON.stringify({ enabled })
+export const setModuleEnabled = async (key: string, enabled: boolean): Promise<AdminModule> => {
+	const { data, response } = await api.PUT('/api/v1/admin/modules/{key}', {
+		params: { path: { key } },
+		body: { enabled }
 	});
+	assertOk(response);
+	return data as AdminModule;
+};
 
-export const getInvitations = () => request<AdminInvitation[]>('/api/v1/invitations');
+export const getInvitations = async (): Promise<AdminInvitation[]> => {
+	const { data, response } = await api.GET('/api/v1/invitations');
+	assertOk(response);
+	return data as AdminInvitation[];
+};
 
-export const createInvitation = (expiresInDays: number) =>
-	request<CreatedInvitation>('/api/v1/invitations', {
-		method: 'POST',
-		headers: { ...csrfHeaders(), 'content-type': 'application/json' },
-		body: JSON.stringify({ expires_in_days: expiresInDays })
+export const createInvitation = async (expiresInDays: number): Promise<CreatedInvitation> => {
+	const { data, response } = await api.POST('/api/v1/invitations', {
+		body: { expires_in_days: expiresInDays }
 	});
+	assertOk(response);
+	return data as CreatedInvitation;
+};
 
-export const revokeInvitation = (id: string) =>
-	request<void>(`/api/v1/invitations/${encodeURIComponent(id)}`, {
-		method: 'DELETE',
-		headers: csrfHeaders()
+export const revokeInvitation = async (id: string): Promise<void> => {
+	const { response } = await api.DELETE('/api/v1/invitations/{invitation_id}', {
+		params: { path: { invitation_id: id } }
 	});
+	assertOk(response);
+};
 
 export function buildInviteLink(origin: string, token: string): string {
 	return `${origin}/register?invite=${encodeURIComponent(token)}`;

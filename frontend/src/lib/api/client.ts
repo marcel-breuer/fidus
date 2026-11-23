@@ -1,19 +1,27 @@
-import { csrfHeaders } from './csrf';
+import { createApiClient } from './http';
+import type { components } from './schema';
 
 export type AuthError = 'credentials' | 'exists' | 'closed' | 'invalid' | 'rateLimited' | 'unknown';
 
-async function detail(response: Response): Promise<unknown> {
-	try {
-		return ((await response.json()) as { detail?: unknown }).detail;
-	} catch {
-		return undefined;
-	}
+const api = createApiClient(fetch, '');
+
+function detail(payload: unknown): unknown {
+	return typeof payload === 'object' && payload !== null && 'detail' in payload
+		? payload.detail
+		: undefined;
 }
 
 export async function login(email: string, password: string): Promise<AuthError | null> {
-	const response = await fetch('/api/v1/auth/login', {
-		method: 'POST',
-		body: new URLSearchParams({ username: email, password })
+	const { response } = await api.POST('/api/v1/auth/login', {
+		parseAs: 'text',
+		body: { username: email, password, scope: '' },
+		headers: { 'content-type': 'application/x-www-form-urlencoded' },
+		bodySerializer: (body) =>
+			new URLSearchParams({
+				username: body.username,
+				password: body.password,
+				scope: body.scope
+			}).toString()
 	});
 	if (response.ok) return null;
 	if (response.status === 429) return 'rateLimited';
@@ -25,18 +33,18 @@ export async function register(
 	password: string,
 	invitationToken?: string
 ): Promise<AuthError | null> {
-	const response = await fetch('/api/v1/auth/register', {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
+	const { error, response } = await api.POST('/api/v1/auth/register', {
+		// The schema lists the defaulted flags (is_active, ...) as required; the server ignores them for
+		// registrations, so the client only sends what the form collects.
+		body: {
 			email,
 			password,
 			...(invitationToken ? { invitation_token: invitationToken } : {})
-		})
+		} as components['schemas']['UserCreate']
 	});
 	if (response.ok) return null;
 	if (response.status === 429) return 'rateLimited';
-	const reason = await detail(response);
+	const reason = detail(error);
 	if (reason === 'REGISTER_USER_ALREADY_EXISTS') return 'exists';
 	if (reason === 'REGISTRATION_CLOSED') return 'closed';
 	if (response.status === 400 || response.status === 422) return 'invalid';
@@ -44,9 +52,9 @@ export async function register(
 }
 
 export async function logout(): Promise<void> {
-	await fetch('/api/v1/auth/logout', { method: 'POST', headers: csrfHeaders() });
+	await api.POST('/api/v1/auth/logout', { parseAs: 'text' });
 }
 
 export async function logoutAll(): Promise<void> {
-	await fetch('/api/v1/auth/logout-all', { method: 'POST', headers: csrfHeaders() });
+	await api.POST('/api/v1/auth/logout-all', { parseAs: 'text' });
 }
