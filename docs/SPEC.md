@@ -1,0 +1,53 @@
+# Fidus – Specification
+
+Fidus is an open-source (MIT), self-hostable personal assistant: a chat interface with a growing set of modules.
+
+## Decisions
+
+| Topic | Decision |
+|---|---|
+| Backend | Python, FastAPI, SQLAlchemy (async), Alembic |
+| Frontend | SvelteKit (TypeScript) |
+| Database | PostgreSQL with pgvector (relational data and embeddings) |
+| Auth | fastapi-users, multi-user from the start, `user_id` on every user-owned table |
+| Models | OpenAI only, one `OPENAI_API_KEY`; chat, transcription, embeddings, TTS and web search models are fixed in a config file, not chosen at runtime |
+| i18n | UI in German and English from the start; code, docs and repo in English |
+| License | MIT |
+| Deployment | Docker Compose (db, backend, worker, frontend) |
+| Reminders | In-app only (no e-mail, no push) |
+
+## MVP scope
+
+### Chat module
+- Multiple conversations (sidebar list, rename, delete)
+- Streaming responses with Markdown and code rendering
+- Source references (documents and web links)
+- File attachments on messages (PDF, text, images)
+- Knowledge: RAG over uploaded files and notes, conversation history as memory, web search
+
+### Audio
+- Browser recording (microphone button), transcript is inserted as a message
+- Audio upload as memo: transcribe, store transcript as a searchable document
+- Long files: chunking and asynchronous processing (transcription API limit: 25 MB per file)
+- Text-to-speech for responses
+
+### Files module
+- Folder and file browser, files created by the user or by the agent
+- Content feeds the RAG index
+
+### Tasks module
+- To-do list with due date and in-app reminder (`remind_at`)
+- Due reminders are surfaced in the UI
+
+### Module system
+- Backend module registry and sidebar entries are generated from it
+- Later modules (e.g. calendar) plug in without changing the core
+
+## Out of scope for the MVP
+- Multiple LLM providers, per-user model selection
+- E-mail or push reminders
+- Calendar integration
+
+## Open points
+- Exact model IDs: verify against current OpenAI documentation when implementing
+- Usage limits per user for a hosted service (token and audio-minute budgets)
