@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–2 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, and chat UI), and Files Stage 1 (`Refs #19`: private storage, folders, streamed uploads, versioning, downloads and browser UI). Conversation memory and durable memories, web search, citations, attachments and agent tools remain unimplemented. Files text extraction, embeddings and search are not implemented yet. Streaming/chat completion, memory, web search, attachments, agent tools and chat UI remain unimplemented, as do audio, tokens and MCP; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–2 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, and chat UI), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). Conversation memory and durable memories, web search, citations in chat, attachments and agent tools remain unimplemented, as do audio, tokens and MCP; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -35,6 +35,8 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 - Source references (documents and web links)
 - File attachments on messages (PDF, text, images)
 - Knowledge: RAG over uploaded files and notes, conversation history as memory, web search
+
+Files Stage 2 (`Refs #19`) provides indexed file retrieval and a Files-page search. Chat answers do not yet call knowledge search or show its citations; conversation memory, web search and attachments also remain unimplemented.
 
 ### Audio
 - Browser recording (microphone button), transcript is inserted as a message
@@ -46,7 +48,7 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 - Folder and file browser, files created by the user or by the agent
 - Content feeds the RAG index
 
-Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage, streamed uploads, versions and attachment downloads. Stage 2 will add text extraction, embeddings and search; none of those are implemented yet.
+Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage, streamed uploads, versions and downloads. Stage 2 (`Refs #19`) implements plain text, Markdown, PDF and DOCX extraction; overlap-aware chunks and configured embeddings; per-user document/chunk tables; a background indexing job with retry; hybrid vector/full-text retrieval with file/version/position/snippet citations; and localized indexing status plus search in the Files page. Audio transcripts as documents, agent-created files, citations in chat answers and chat attachments remain later work.
 
 ### Tasks module
 - Implemented: user-scoped tasks with notes, due date, reminder time, completion/reopen, soft deletion and open/done/all filtering.

@@ -34,8 +34,8 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ["REGISTRATION_MODE"] = "open"
 os.environ["APP_URL"] = "http://localhost:8080"
 
-from app.ai.deps import get_chat_provider  # noqa: E402
-from app.ai.fakes import FakeChatProvider  # noqa: E402
+from app.ai.deps import get_chat_provider, get_embedding_provider  # noqa: E402
+from app.ai.fakes import FakeChatProvider, KeywordEmbeddingProvider  # noqa: E402
 from app.ai.providers import Completed, TextDelta, Usage  # noqa: E402
 from app.auth.rate_limit import get_redis  # noqa: E402
 from app.config import get_settings  # noqa: E402
@@ -148,11 +148,17 @@ async def client(
     rate_limit_store: InMemoryRateLimitStore,
     chat_provider: FakeChatProvider,
     memory_storage: MemoryStorage,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app()
     app.dependency_overrides[get_redis] = lambda: rate_limit_store  # type: ignore[assignment]
     app.dependency_overrides[get_chat_provider] = lambda: chat_provider
+    app.dependency_overrides[get_embedding_provider] = lambda: KeywordEmbeddingProvider()
     app.dependency_overrides[get_storage] = lambda: memory_storage
+    async def skip_index_queue(user_id: str, document_id: str) -> None:
+        return None
+
+    monkeypatch.setattr("app.services.indexing.enqueue_index_document", skip_index_queue)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

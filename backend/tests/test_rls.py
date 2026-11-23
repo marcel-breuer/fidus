@@ -167,10 +167,10 @@ async def test_files_rls_is_forced(owner_engine) -> None:
         rows = (await conn.execute(
             text(
                 "SELECT relrowsecurity, relforcerowsecurity FROM pg_class "
-                "WHERE relname IN ('nodes', 'file_versions') ORDER BY relname"
+                "WHERE relname IN ('nodes', 'file_versions', 'documents', 'chunks') ORDER BY relname"
             )
         )).all()
-    assert rows == [(True, True), (True, True)]
+    assert rows == [(True, True), (True, True), (True, True), (True, True)]
 
 
 async def test_application_role_does_not_own_tables(owner_engine) -> None:
@@ -193,3 +193,4 @@ async def test_worker_job_runs_in_owning_users_context(two_users) -> None:
 
 async def test_worker_job_is_registered_on_the_broker() -> None:
     assert broker.find_task("tasks.count_open") is not None
+    assert broker.find_task("files.index_document") is not None

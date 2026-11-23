@@ -3,3 +3,8 @@ embedding = "text-embedding-3-small"
 embedding_dimensions = 1536
 transcription = "gpt-transcribe"
 web_search = true
+
+[retrieval]
+chunk_size_chars = 1200
+chunk_overlap_chars = 200
+top_k = 8

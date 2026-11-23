@@ -7,8 +7,12 @@ from app.storage.local import LocalStorage
 _storage: LocalStorage | None = None
 
 
-async def get_storage() -> AsyncIterator[Storage]:
+def build_storage() -> LocalStorage:
     global _storage
     if _storage is None:
         _storage = LocalStorage(get_settings().storage_path)
-    yield _storage
+    return _storage
+
+
+async def get_storage() -> AsyncIterator[Storage]:
+    yield build_storage()

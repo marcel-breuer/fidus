@@ -51,3 +51,7 @@ type ChatEvent = TextDelta | ToolCall | Completed
 
 class ChatProvider(Protocol):
     def stream(self, request: ChatRequest) -> AsyncIterator[ChatEvent]: ...
+
+
+class EmbeddingProvider(Protocol):
+    async def embed(self, texts: list[str]) -> list[list[float]]: ...

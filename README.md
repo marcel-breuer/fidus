@@ -2,7 +2,7 @@
 
 Open-source, self-hostable personal assistant: a chat interface with a growing set of modules (chat, files, tasks, later calendar). Multi-user, FastAPI + SvelteKit + PostgreSQL/pgvector, powered by a single OpenAI API key.
 
-Status: early development. The app includes sign-up and sign-in, the module sidebar, row-level security, a background worker, Tasks with reminders, the Stage 1 chat backend foundation, and Files Stage 1 (folder and file browser, versioned uploads and downloads). File blobs are stored in the persistent `files_data` Docker volume; include it in backups alongside the database. Text extraction, embeddings and search remain future work. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
+Status: early development. The app includes sign-up and sign-in, the module sidebar, row-level security, a background worker, Tasks with reminders, chat Stages 1–2, and Files Stages 1–2 (folder and file browser, versioned uploads, downloads, indexing and hybrid search). File blobs are stored in the persistent `files_data` Docker volume; include it in backups alongside the database. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
 
 ## Quick start
 ```sh
@@ -10,7 +10,7 @@ git clone https://github.com/marcel-breuer/fidus
 cd fidus
 ./start.sh
 ```
-`start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack, then prints the address (default `http://localhost:8080`). The first account you register becomes the admin. `REGISTRATION_MODE` (`open`, `invite-only`, `closed`) controls registration afterwards. Set `OPENAI_API_KEY` in `.env` before the assistant features arrive.
+`start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack, then prints the address (default `http://localhost:8080`). The first account you register becomes the admin. `REGISTRATION_MODE` (`open`, `invite-only`, `closed`) controls registration afterwards. Set `OPENAI_API_KEY` in `.env` to enable chat and file embeddings.
 
 ### Behind a reverse proxy
 Set `TRUSTED_PROXIES` in `.env` to the comma-separated IPs or CIDRs of the proxy hops that connect to the gateway. Leave it empty when the gateway is directly exposed. The gateway resolves forwarded client addresses only through those trusted proxies.

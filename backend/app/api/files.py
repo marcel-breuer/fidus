@@ -2,17 +2,23 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.config import get_model_config
+from app.ai.deps import get_embedding_provider
+from app.ai.providers import EmbeddingProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
 from app.db.models import FileVersion, Node, User
 from app.modules.guard import require_module
 from app.services import files as service
 from app.services.files import FilesError
+from app.services.indexing import latest_document, retry_latest_document
+from app.services.retrieval import search_knowledge
 from app.storage.base import Storage, StorageTooLarge
 from app.storage.deps import get_storage
 
@@ -45,6 +51,28 @@ class FolderCreate(BaseModel):
 class NodeUpdate(BaseModel):
     name: str | None = None
     parent_id: str | None = None
+
+
+class DocumentStatusOut(BaseModel):
+    status: str
+    chunk_count: int
+    error_code: str | None
+
+
+class CitationOut(BaseModel):
+    chunk_id: str
+    document_id: str
+    node_id: str
+    folder_id: str | None
+    file_name: str
+    version: int
+    position: int
+    snippet: str
+    score: float
+
+
+class SearchOut(BaseModel):
+    results: list[CitationOut]
 
 
 def _node(node: Node, size: int | None = None) -> NodeOut:
@@ -174,6 +202,49 @@ async def get_versions(
     if rows is None:
         raise HTTPException(status_code=404, detail="NODE_NOT_FOUND")
     return [VersionOut.model_validate(row, from_attributes=True) for row in rows]
+
+
+@router.get("/files/nodes/{node_id}/document", response_model=DocumentStatusOut)
+async def get_document_status(
+    node_id: str,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> DocumentStatusOut:
+    node = await session.scalar(
+        select(Node).where(
+            Node.id == node_id, Node.user_id == user.id, Node.kind == "file", Node.deleted_at.is_(None)
+        )
+    )
+    document = await latest_document(session, user, node_id) if node is not None else None
+    if document is None:
+        raise HTTPException(status_code=404, detail="DOCUMENT_NOT_FOUND")
+    return DocumentStatusOut(status=document.status, chunk_count=document.chunk_count, error_code=document.error_code)
+
+
+@router.post("/files/nodes/{node_id}/reindex", response_model=DocumentStatusOut)
+async def post_reindex(
+    node_id: str,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> DocumentStatusOut:
+    document = await retry_latest_document(session, user, node_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="DOCUMENT_NOT_FOUND")
+    return DocumentStatusOut(status=document.status, chunk_count=document.chunk_count, error_code=document.error_code)
+
+
+@router.get("/knowledge/search", response_model=SearchOut)
+async def get_knowledge_search(
+    q: str = Query(min_length=1, max_length=2000),
+    limit: int | None = Query(default=None, ge=1, le=20),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    embedder: EmbeddingProvider = Depends(get_embedding_provider),
+) -> SearchOut:
+    if not q.strip():
+        raise HTTPException(status_code=422, detail="QUERY_REQUIRED")
+    hits = await search_knowledge(session, user, q, embedder, limit or get_model_config().retrieval.top_k)
+    return SearchOut(results=[CitationOut.model_validate(hit, from_attributes=True) for hit in hits])
 
 
 @router.get("/files/nodes/{node_id}/download")

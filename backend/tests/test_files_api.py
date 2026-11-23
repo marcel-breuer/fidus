@@ -43,6 +43,8 @@ async def test_files_auth_module_guard_and_crud(client: httpx.AsyncClient, owner
     disabled = await client.put("/api/v1/admin/modules/files", json={"enabled": False})
     assert disabled.status_code == 200
     assert (await client.get("/api/v1/files/nodes")).status_code == 404
+    assert (await client.get("/api/v1/knowledge/search", params={"q": "archive"})).status_code == 404
+    assert (await client.get(f"/api/v1/files/nodes/{folder['id']}/document")).status_code == 404
     assert (await client.put("/api/v1/admin/modules/files", json={"enabled": True})).status_code == 200
 
 
@@ -194,3 +196,50 @@ async def test_name_controls_and_long_names_are_rejected(client: httpx.AsyncClie
     assert sanitized.status_code == 201 and sanitized.json()["name"] == "badname"
     assert (await client.post("/api/v1/files/folders", json={"name": ".."})).status_code == 422
     assert (await client.post("/api/v1/files/folders", json={"name": "x" * 256})).status_code == 422
+
+
+async def test_upload_creates_pending_document_and_owner_can_reindex(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queued: list[tuple[str, str]] = []
+
+    async def record(user_id: str, document_id: str) -> None:
+        queued.append((user_id, document_id))
+
+    monkeypatch.setattr("app.services.indexing.enqueue_index_document", record)
+    user_id = await _register_login(client, "files-index-pending@example.com")
+    uploaded = await client.post("/api/v1/files/upload", files={"file": ("pending.txt", b"search me", "text/plain")})
+    assert uploaded.status_code == 201
+    node_id = uploaded.json()["id"]
+    status = await client.get(f"/api/v1/files/nodes/{node_id}/document")
+    assert status.status_code == 200
+    assert status.json() == {"status": "pending", "chunk_count": 0, "error_code": None}
+    assert queued and queued[0][0] == user_id
+    denied_retry = await client.post(f"/api/v1/files/nodes/{node_id}/reindex", headers={"X-CSRF-Token": "bad"})
+    assert denied_retry.status_code == 403
+    retried = await client.post(f"/api/v1/files/nodes/{node_id}/reindex")
+    assert retried.status_code == 200 and retried.json()["status"] == "pending"
+    assert len(queued) == 2
+
+
+async def test_index_enqueue_failure_does_not_fail_upload(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fail_enqueue(user_id: str, document_id: str) -> None:
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr("app.services.indexing.enqueue_index_document", fail_enqueue)
+    await _register_login(client, "files-index-enqueue-failure@example.com")
+    response = await client.post("/api/v1/files/upload", files={"file": ("queued.txt", b"pending", "text/plain")})
+    assert response.status_code == 201
+
+
+async def test_document_status_and_reindex_are_user_scoped(client: httpx.AsyncClient) -> None:
+    await _register_login(client, "files-index-owner@example.com")
+    upload = await client.post("/api/v1/files/upload", files={"file": ("private.txt", b"private", "text/plain")})
+    node_id = upload.json()["id"]
+    await client.post("/api/v1/auth/logout")
+    client.headers.pop("X-CSRF-Token", None)
+    await _register_login(client, "files-index-other@example.com")
+    assert (await client.get(f"/api/v1/files/nodes/{node_id}/document")).status_code == 404
+    assert (await client.post(f"/api/v1/files/nodes/{node_id}/reindex")).status_code == 404

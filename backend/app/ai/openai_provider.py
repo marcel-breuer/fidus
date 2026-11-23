@@ -45,3 +45,26 @@ def create_openai_chat_provider(api_key: str) -> OpenAIChatProvider:
     from openai import AsyncOpenAI
 
     return OpenAIChatProvider(AsyncOpenAI(api_key=api_key))
+
+
+class OpenAIEmbeddingProvider:
+    def __init__(self, client: Any) -> None:
+        self.client = client
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        config = get_model_config()
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), 64):
+            response = await self.client.embeddings.create(
+                model=config.embedding,
+                input=texts[start:start + 64],
+                dimensions=config.embedding_dimensions,
+            )
+            vectors.extend(item.embedding for item in sorted(response.data, key=lambda item: item.index))
+        return vectors
+
+
+def create_openai_embedding_provider(api_key: str) -> OpenAIEmbeddingProvider:
+    from openai import AsyncOpenAI
+
+    return OpenAIEmbeddingProvider(AsyncOpenAI(api_key=api_key))
