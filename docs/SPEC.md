@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Chat attachments, tokens and MCP remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`) are implemented. Chat attachments and OAuth remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -57,7 +57,8 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 
 ### API and MCP
 - Every capability is a typed service operation exposed through REST, the chat agent and MCP
-- Personal access tokens with scopes for integrations; OAuth for native apps later
+- Implemented: personal access tokens (hashed, scoped, revocable, 90-day default expiry) managed in the settings page, and an MCP server at `/mcp` for task, knowledge-search and conversation-search tools; token changes and MCP writes are recorded in the audit log, file tools are not exposed.
+- OAuth for native apps later
 
 ### Module system
 - Backend module registry and sidebar entries are generated from enabled entries; admins manage instance-wide module enablement from `/admin`

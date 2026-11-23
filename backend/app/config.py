@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     auth_rate_limit_attempts: int = Field(default=10, ge=1)
     auth_rate_limit_window_seconds: int = Field(default=60, ge=1)
 
+    mcp_rate_limit_requests: int = Field(default=120, ge=1)
+    mcp_rate_limit_window_seconds: int = Field(default=60, ge=1)
+
     openai_api_key: str = ""
 
 

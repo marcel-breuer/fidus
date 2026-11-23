@@ -27,8 +27,11 @@
 			{/each}
 		</ul>
 	{/if}
+	<a class="extra-link" href="/settings/tokens" aria-current={current === '/settings/tokens' ? 'page' : undefined}>
+		<span>{t('nav.tokens')}</span>
+	</a>
 	{#if admin}
-		<a class="admin-link" href="/admin" aria-current={current === '/admin' ? 'page' : undefined}>
+		<a class="extra-link" href="/admin" aria-current={current === '/admin' ? 'page' : undefined}>
 			<span>{t('nav.admin')}</span>
 		</a>
 	{/if}
@@ -66,7 +69,7 @@
 		font-size: 0.9rem;
 		padding: 0 0.7rem;
 	}
-	.admin-link {
+	.extra-link {
 		display: flex;
 		align-items: center;
 		gap: 0.65rem;
@@ -75,6 +78,6 @@
 		color: inherit;
 		text-decoration: none;
 	}
-	.admin-link:hover { background: var(--hover); }
-	.admin-link[aria-current='page'] { background: var(--accent); color: var(--accent-ink); }
+	.extra-link:hover { background: var(--hover); }
+	.extra-link[aria-current='page'] { background: var(--accent); color: var(--accent-ink); }
 </style>
