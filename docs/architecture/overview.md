@@ -1,6 +1,6 @@
 # Fidus — Architecture Overview
 
-Status: the scaffold, tasks module and in-app reminder flow are implemented. Chat, files, audio, tokens, the MCP server and the other items below remain design only unless noted.
+Status: the scaffold, the tasks module with in-app reminders and the Stage 1 chat backend foundation are implemented. Other chat capabilities, files, audio, tokens, the MCP server and everything else below remain design only. Update this file together with the code.
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `scheduler`, `db`, `redis` and the one-shot `migrate` service that `backend`, `worker` and `scheduler` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API); the scheduler only needs Redis on `internal`.
@@ -13,6 +13,7 @@ Status: the scaffold, tasks module and in-app reminder flow are implemented. Cha
 - Scheduler: Taskiq's label schedule source reads recurring jobs from the same backend image and Redis broker. Its healthcheck verifies that the scheduler command is still running as PID 1.
 - Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint; task APIs and the reminder worker enforce module enablement. Chat and files remain placeholders without services. Disabling a module leaves its data untouched.
 - Tasks and reminders: task CRUD, completion/reopen, soft delete and user-scoped reminder operations are implemented in shared services behind REST adapters. The task page provides localized task entry, filtering, editing and completion. The reminder banner loads active reminders and receives refreshed lists over per-user Redis-backed SSE; the stream uses short-lived user sessions and releases its Redis subscription on disconnect.
+- Chat Stage 1 (`Refs #18`): fixed model configuration is loaded from `backend/app/ai/models.toml`; a provider interface and OpenAI chat provider are present. User-owned `conversations` and `messages` tables have forced RLS, and REST routes provide conversation CRUD, message listing and full-text message search. Streaming/chat completion endpoint, memory, web search, attachments and agent tools are **not implemented yet**. Frontend work remains pending; `frontend/openapi.json` and the generated `schema.d.ts` need regenerating for these routes.
 - Frontend: SvelteKit with adapter-node, server-side load of the user and modules, a generated OpenAPI type schema used by a shared `openapi-fetch` client, German and English catalogs with a typed key set.
 
 

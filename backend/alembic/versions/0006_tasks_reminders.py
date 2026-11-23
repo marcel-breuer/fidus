@@ -5,8 +5,8 @@ from alembic import op
 
 from app.config import get_settings
 
-revision = "0005t"
-down_revision = "0004"
+revision = "0006"
+down_revision = "0005c"
 branch_labels = None
 depends_on = None
 
