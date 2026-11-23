@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "AdminModuleOut": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name_key": {
+            "title": "Name Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name_key",
+          "enabled"
+        ],
+        "title": "AdminModuleOut",
+        "type": "object"
+      },
       "Body_auth_cookie_login_api_v1_auth_login_post": {
         "properties": {
           "client_id": {
@@ -206,6 +229,19 @@
         "title": "ModuleOut",
         "type": "object"
       },
+      "ModuleSettingUpdate": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ModuleSettingUpdate",
+        "type": "object"
+      },
       "UserCreate": {
         "properties": {
           "email": {
@@ -371,6 +407,93 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/modules": {
+      "get": {
+        "operationId": "get_admin_modules_api_v1_admin_modules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminModuleOut"
+                  },
+                  "title": "Response Get Admin Modules Api V1 Admin Modules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Admin Modules",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/modules/{key}": {
+      "put": {
+        "operationId": "put_admin_module_api_v1_admin_modules__key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuleSettingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminModuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Put Admin Module",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "operationId": "auth_cookie_login_api_v1_auth_login_post",

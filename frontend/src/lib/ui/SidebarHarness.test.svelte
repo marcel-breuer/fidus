@@ -4,8 +4,8 @@
 	import { provideT } from '$lib/i18n/context';
 	import Sidebar from './Sidebar.svelte';
 
-	let { locale, modules, current }: { locale: Locale; modules: ModuleEntry[]; current: string } = $props();
+	let { locale, modules, current, admin = false }: { locale: Locale; modules: ModuleEntry[]; current: string; admin?: boolean } = $props();
 	provideT(() => locale);
 </script>
 
-<Sidebar {modules} {current} />
+<Sidebar {modules} {current} {admin} />

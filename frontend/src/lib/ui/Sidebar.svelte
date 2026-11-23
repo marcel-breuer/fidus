@@ -4,7 +4,7 @@
 	import { getT } from '$lib/i18n/context';
 	import Icon from './Icon.svelte';
 
-	let { modules, current = '' }: { modules: ModuleEntry[]; current?: string } = $props();
+	let { modules, current = '', admin = false }: { modules: ModuleEntry[]; current?: string; admin?: boolean } = $props();
 	const t = getT();
 </script>
 
@@ -26,6 +26,11 @@
 				</li>
 			{/each}
 		</ul>
+	{/if}
+	{#if admin}
+		<a class="admin-link" href="/admin" aria-current={current === '/admin' ? 'page' : undefined}>
+			<span>{t('nav.admin')}</span>
+		</a>
 	{/if}
 </nav>
 
@@ -61,4 +66,15 @@
 		font-size: 0.9rem;
 		padding: 0 0.7rem;
 	}
+	.admin-link {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+		padding: 0.55rem 0.7rem;
+		border-radius: 0.625rem;
+		color: inherit;
+		text-decoration: none;
+	}
+	.admin-link:hover { background: var(--hover); }
+	.admin-link[aria-current='page'] { background: var(--accent); color: var(--accent-ink); }
 </style>

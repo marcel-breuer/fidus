@@ -6,6 +6,7 @@ export const de: Record<MessageKey, string> = {
 	'common.error': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
 	'common.retry': 'Erneut versuchen',
 	'nav.primary': 'Hauptnavigation',
+	'nav.admin': 'Administration',
 	'nav.empty': 'Keine Module verfügbar.',
 	'nav.logout': 'Abmelden',
 	'nav.language': 'Sprache',
@@ -32,5 +33,19 @@ export const de: Record<MessageKey, string> = {
 	'auth.register.error.exists': 'Mit dieser E-Mail-Adresse existiert bereits ein Konto.',
 	'auth.register.error.closed': 'Die Registrierung ist auf dieser Instanz geschlossen.',
 	'auth.register.error.invalid': 'Prüfe E-Mail-Adresse und Passwort.',
-	'auth.register.error.rateLimited': 'Zu viele Versuche. Bitte warte, bevor du es erneut versuchst.'
+	'auth.register.error.rateLimited': 'Zu viele Versuche. Bitte warte, bevor du es erneut versuchst.',
+	'admin.title': 'Administration',
+	'admin.modules.title': 'Module',
+	'admin.modules.empty': 'Es sind keine Module registriert.',
+	'admin.modules.toggle': '{module} aktivieren oder deaktivieren',
+	'admin.invitations.title': 'Einladungen',
+	'admin.invitations.expiry': 'Gültigkeit in Tagen',
+	'admin.invitations.create': 'Einladung erstellen',
+	'admin.invitations.created': 'Kopiere diesen Registrierungslink. Das Einladungstoken wird nur einmal angezeigt.',
+	'admin.invitations.copy': 'Link kopieren',
+	'admin.invitations.copied': 'Kopiert',
+	'admin.invitations.active': 'Aktive Einladungen',
+	'admin.invitations.empty': 'Es gibt keine aktiven Einladungen.',
+	'admin.invitations.expires': 'Läuft ab am {date}',
+	'admin.invitations.revoke': 'Widerrufen'
 };

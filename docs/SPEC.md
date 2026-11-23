@@ -17,7 +17,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | i18n | UI in German and English from the start; code, docs and repo in English |
 | License | MIT |
 | Deployment | Docker Compose only (gateway, frontend, backend, worker, db, redis); local via `./start.sh` or on an own server or web hosting behind TLS |
-| Registration | Open by default after the first admin; invite-only uses admin-created, single-use invitations managed through the API for now; closed rejects further registrations |
+| Registration | Open by default after the first admin; invite-only uses admin-created, single-use invitations managed in the admin screen and API; closed rejects further registrations |
 | Usage | Tokens, audio minutes and storage are recorded and displayed per user; no quota enforcement in the MVP |
 | Clients | Web UI first; native apps (macOS, iOS, iPadOS, Windows) later as API clients |
 | Integrations | Versioned REST API (`/api/v1`) and an MCP server (`/mcp`) over the same service layer |
@@ -55,8 +55,13 @@ Implemented: Docker Compose stack, authentication with registration modes, modul
 - Personal access tokens with scopes for integrations; OAuth for native apps later
 
 ### Module system
-- Backend module registry and sidebar entries are generated from it
+- Backend module registry and sidebar entries are generated from enabled entries; admins manage instance-wide module enablement from `/admin`
+- Disabled modules are hidden and can be blocked at their API and worker entry points; module data remains stored
 - Later modules (e.g. calendar) plug in without changing the core
+
+### Administration
+- Admins create, list and revoke invitations and set their expiry from `/admin`; invitation tokens are shown once with a registration link
+- Admins can enable or disable registered modules for the instance
 
 ## Out of scope for the MVP
 - Multiple LLM providers, per-user model selection

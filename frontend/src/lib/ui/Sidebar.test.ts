@@ -40,4 +40,11 @@ describe('Sidebar', () => {
 	it('exposes a labelled navigation landmark', () => {
 		expect(html('de', modules)).toContain(`aria-label="${translate('de', 'nav.primary')}"`);
 	});
+
+	it('shows the admin entry only when the user is an admin', () => {
+		expect(render(Harness, { props: { locale: 'en', modules, current: '', admin: false } }).body).not.toContain('href="/admin"');
+		const admin = render(Harness, { props: { locale: 'en', modules, current: '', admin: true } }).body;
+		expect(admin).toContain('href="/admin"');
+		expect(admin).toContain('Administration');
+	});
 });
