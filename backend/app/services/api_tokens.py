@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import ApiToken, User
 from app.db.session import system_session
 from app.modules.registry import ALL_SCOPES
+from app.services import audit
 
 TOKEN_PREFIX = "fidus_pat_"
 DEFAULT_EXPIRY_DAYS = 90
@@ -73,6 +74,10 @@ async def create_token(
     session.add(token)
     await session.flush()
     await session.refresh(token)
+    await audit.record(
+        session, user, "token.create", "api_token", token.id,
+        {"scopes": unique_scopes, "expires_at": token.expires_at.isoformat()}, actor="user",
+    )
     return token, secret
 
 
@@ -96,6 +101,7 @@ async def revoke_token(session: AsyncSession, user: User, token_id: str, *, now:
         return False
     token.revoked_at = now or datetime.now(UTC)
     await session.flush()
+    await audit.record(session, user, "token.revoke", "api_token", token.id, actor="user")
     return True
 
 

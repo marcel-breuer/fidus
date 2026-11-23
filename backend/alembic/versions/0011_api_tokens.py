@@ -7,8 +7,8 @@ from sqlalchemy.dialects import postgresql
 from app.config import get_settings
 
 revision = "0011"
-# Chained to 0008 for now; the merge order decides the final parent.
-down_revision = "0008"
+# Chained after 0009 (memory, agent actions, audit log).
+down_revision = "0009"
 branch_labels = None
 depends_on = None
 

@@ -16,7 +16,7 @@ from app.api.conversations import ConversationOut, SearchResult
 from app.api.files import CitationOut
 from app.api.tasks import TaskOut
 from app.db.models import User
-from app.services import conversations, tasks
+from app.services import audit, conversations, tasks
 from app.services.retrieval import search_knowledge
 
 
@@ -29,6 +29,7 @@ class ToolContext:
     session: AsyncSession
     user: User
     embedder: EmbeddingProvider
+    token_id: str
 
 
 class ToolInput(BaseModel):
@@ -96,6 +97,13 @@ def _dump(model: BaseModel) -> dict[str, Any]:
     return model.model_dump(mode="json")
 
 
+async def _audit(ctx: ToolContext, tool_name: str, task_id: str) -> None:
+    # Same transaction as the write, so the audit row commits or rolls back with it.
+    await audit.record(
+        ctx.session, ctx.user, f"mcp.{tool_name}", "task", task_id, {"token_id": ctx.token_id}, actor="mcp"
+    )
+
+
 async def _list_tasks(ctx: ToolContext, args: ListTasksInput) -> dict[str, Any]:
     try:
         items, next_cursor = await tasks.list_tasks(
@@ -111,6 +119,7 @@ async def _list_tasks(ctx: ToolContext, args: ListTasksInput) -> dict[str, Any]:
 
 async def _create_task(ctx: ToolContext, args: CreateTaskInput) -> dict[str, Any]:
     task = await tasks.create_task(ctx.session, ctx.user, **args.model_dump())
+    await _audit(ctx, "create_task", task.id)
     return _dump(TaskOut.model_validate(task, from_attributes=True))
 
 
@@ -118,6 +127,7 @@ async def _complete_task(ctx: ToolContext, args: CompleteTaskInput) -> dict[str,
     task = await tasks.complete_task(ctx.session, ctx.user, args.task_id)
     if task is None:
         raise ToolError("TASK_NOT_FOUND")
+    await _audit(ctx, "complete_task", task.id)
     return _dump(TaskOut.model_validate(task, from_attributes=True))
 
 

@@ -25,18 +25,18 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–2 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, and chat UI), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI), and personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools (`Refs #22`). Conversation memory and durable memories, web search, citations in chat, attachments and agent tools remain unimplemented, as do audio and OAuth; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI), and personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`). Chat attachments, audio and OAuth remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
 ### Chat module
 - Multiple conversations (sidebar list, rename, delete)
 - Streaming responses with Markdown and code rendering
-- Source references (documents and web links)
-- File attachments on messages (PDF, text, images)
-- Knowledge: RAG over uploaded files and notes, conversation history as memory, web search
+- Source references (documents and web links): implemented
+- File attachments on messages (PDF, text, images): not implemented
+- Knowledge: RAG over uploaded files, conversation history search, durable memories and web search are implemented; notes are not
 
-Files Stage 2 (`Refs #19`) provides indexed file retrieval and a Files-page search. Chat answers do not yet call knowledge search or show its citations; conversation memory, web search and attachments also remain unimplemented.
+Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete at `/chat/memories`; injected into chat context), conversation history search, web search through a provider interface, numbered citations for file passages, earlier messages and web results, and typed agent tools (`search_knowledge`, `search_conversations`, `web_search`, `remember`, `create_task`). Agent writes ask for confirmation in the chat by default; a per-user setting lets the assistant act without asking. Every agent write is recorded in `audit_log`. Attachments remain unimplemented.
 
 ### Audio
 - Browser recording (microphone button), transcript is inserted as a message
@@ -57,7 +57,7 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 
 ### API and MCP
 - Every capability is a typed service operation exposed through REST, the chat agent and MCP
-- Implemented: personal access tokens (hashed, scoped, revocable, 90-day default expiry) managed in the settings page, and an MCP server at `/mcp` for task, knowledge-search and conversation-search tools; MCP writes are not audited yet and file tools are not exposed.
+- Implemented: personal access tokens (hashed, scoped, revocable, 90-day default expiry) managed in the settings page, and an MCP server at `/mcp` for task, knowledge-search and conversation-search tools; token changes and MCP writes are recorded in the audit log, file tools are not exposed.
 - OAuth for native apps later
 
 ### Module system

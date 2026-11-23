@@ -165,3 +165,18 @@ async def test_rls_hides_tokens_without_context_and_across_users(client: httpx.A
         assert (await session.scalars(select(ApiToken.id).where(ApiToken.user_id == owner_id))).all() == []
     async with user_session(owner_id) as session:
         assert len((await session.scalars(select(ApiToken.id))).all()) == 1
+
+
+async def test_token_create_and_revoke_are_audited_without_the_secret(client: httpx.AsyncClient) -> None:
+    await _login(client, "tokens-audit@example.com")
+    body = (await client.post("/api/v1/tokens", json={"name": "x", "scopes": ["tasks:read"]})).json()
+    assert (await client.delete(f"/api/v1/tokens/{body['id']}")).status_code == 204
+    entries = (await client.get("/api/v1/agent/audit")).json()
+    assert sorted((e["actor"], e["action"], e["target_type"], e["target_id"]) for e in entries) == [
+        ("user", "token.create", "api_token", body["id"]),
+        ("user", "token.revoke", "api_token", body["id"]),
+    ]
+    assert body["token"] not in str(entries)
+    client.cookies.clear()
+    await _login(client, "tokens-audit-b@example.com")
+    assert (await client.get("/api/v1/agent/audit")).json() == []

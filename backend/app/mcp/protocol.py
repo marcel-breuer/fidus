@@ -103,7 +103,9 @@ async def _tools_call(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]
             if tool.module not in await enabled_module_keys(session):
                 raise JsonRpcError(MODULE_DISABLED, "MODULE_DISABLED", {"module": tool.module})
             result = await tool.handler(
-                ToolContext(session=session, user=ctx.principal.user, embedder=ctx.embedder), parsed
+                ToolContext(
+                    session=session, user=ctx.principal.user, embedder=ctx.embedder, token_id=ctx.principal.token_id
+                ), parsed
             )
     except ToolError as exc:
         return {"isError": True, "content": [{"type": "text", "text": str(exc)}]}

@@ -431,3 +431,29 @@ def test_every_tool_has_a_rest_operation_a_known_scope_and_module() -> None:
 
 def test_mcp_endpoint_is_not_part_of_the_rest_schema() -> None:
     assert not [path for path in create_app().openapi()["paths"] if path.startswith("/mcp")]
+
+
+# --- audit ---------------------------------------------------------------------------------
+
+
+async def test_mcp_writes_are_audited_and_reads_and_denials_are_not(client: httpx.AsyncClient) -> None:
+    await _login(client, "mcp-audit@example.com")
+    scopes = ["tasks:read", "tasks:write"]
+    created = (await client.post("/api/v1/tokens", json={"name": "a", "scopes": scopes})).json()
+    narrow = (await client.post("/api/v1/tokens", json={"name": "r", "scopes": ["tasks:read"]})).json()["token"]
+    client.cookies.clear()
+    token = created["token"]
+    task = (await call(client, token, "create_task", {"title": "Audited"}))["result"]["structuredContent"]
+    await call(client, token, "complete_task", {"task_id": task["id"]})
+    await call(client, token, "list_tasks")
+    await call(client, token, "complete_task", {"task_id": "missing"})
+    await call(client, narrow, "create_task", {"title": "Denied"})
+
+    await _login_again(client, "mcp-audit@example.com")
+    entries = (await client.get("/api/v1/agent/audit")).json()
+    mcp = [e for e in entries if e["actor"] == "mcp"]
+    assert sorted((e["action"], e["target_type"], e["target_id"]) for e in mcp) == [
+        ("mcp.complete_task", "task", task["id"]),
+        ("mcp.create_task", "task", task["id"]),
+    ]
+    assert token not in str(entries)
