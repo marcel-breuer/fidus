@@ -3,17 +3,11 @@ FROM python:3.13-slim AS builder
 ARG INSTALL_DEV=true
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /build
-COPY pyproject.toml ./
-# Resolve dependencies from the project metadata only, so this layer is cached until they change.
+# Exact, hash-verified versions from the lock files (see scripts/update-python-lock.sh).
+COPY requirements.lock requirements-dev.lock ./
 RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --upgrade pip \
-    && /opt/venv/bin/python - <<'PY' > requirements.txt
-import os, tomllib
-data = tomllib.load(open("pyproject.toml", "rb"))["project"]
-print("\n".join(data["dependencies"]))
-print("\n".join(data["optional-dependencies"]["dev"]) if os.environ["INSTALL_DEV"] == "true" else "")
-PY
-RUN /opt/venv/bin/pip install -r requirements.txt
+    && if [ "$INSTALL_DEV" = "true" ]; then lock=requirements-dev.lock; else lock=requirements.lock; fi \
+    && /opt/venv/bin/pip install --require-hashes -r "$lock"
 
 FROM python:3.13-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH=/opt/venv/bin:$PATH

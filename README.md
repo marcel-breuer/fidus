@@ -22,6 +22,8 @@ The backend tests create a scratch database named `<POSTGRES_DB>_test` and never
 
 `BACKEND_INSTALL_DEV=false` in `.env` builds the backend image without pytest.
 
+Backend dependencies are pinned with hashes in `backend/requirements.lock` (runtime) and `backend/requirements-dev.lock` (runtime plus tests); the image and CI install exactly those. After changing `backend/pyproject.toml`, run `./scripts/update-python-lock.sh` (needs Docker), review the diff and commit the lock files with the change.
+
 ## Documentation
 - [Specification](docs/SPEC.md)
 - [Architecture](docs/architecture/overview.md)
