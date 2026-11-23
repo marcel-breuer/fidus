@@ -1,14 +1,5 @@
-export interface User {
-	id: string;
-	email: string;
-	role: 'admin' | 'member';
-	is_superuser: boolean;
-}
+import type { components } from './schema';
 
-export interface ModuleEntry {
-	key: string;
-	name_key: string;
-	icon: string;
-	route: string;
-	scopes: string[];
-}
+export type User = components['schemas']['UserRead'];
+
+export type ModuleEntry = components['schemas']['ModuleOut'];
