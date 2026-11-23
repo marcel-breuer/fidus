@@ -2,7 +2,7 @@
 
 Open-source, self-hostable personal assistant: a chat interface with a growing set of modules (chat, files, tasks, later calendar). Multi-user, FastAPI + SvelteKit + PostgreSQL/pgvector, powered by a single OpenAI API key.
 
-Status: early development. The scaffold runs: sign-up and sign-in, an app shell with the module sidebar (Chat, Files and Tasks are placeholders), row-level security and a background worker. Chat and the other features are not implemented yet. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
+Status: early development. The scaffold runs: sign-up and sign-in, an app shell with the module sidebar (Chat, Files and Tasks are placeholders), row-level security, a background worker and a Taskiq scheduler for expired-session cleanup. Chat and the other features are not implemented yet. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
 
 ## Quick start
 ```sh

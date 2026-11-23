@@ -46,3 +46,7 @@ export async function register(
 export async function logout(): Promise<void> {
 	await fetch('/api/v1/auth/logout', { method: 'POST', headers: csrfHeaders() });
 }
+
+export async function logoutAll(): Promise<void> {
+	await fetch('/api/v1/auth/logout-all', { method: 'POST', headers: csrfHeaders() });
+}

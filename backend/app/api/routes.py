@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import (
+    COOKIE_NAME,
     auth_backend,
     current_active_user,
     fastapi_users,
 )
 from app.auth.rate_limit import enforce_auth_rate_limit
 from app.auth.schemas import UserCreate, UserRead
+from app.config import get_settings
 from app.db.models import User
 from app.db.session import system_session
 from app.modules.registry import ALL_SCOPES, modules_for_scopes
@@ -23,6 +25,7 @@ from app.services.module_settings import (
     list_effective_settings,
     set_enabled,
 )
+from app.services.sessions import revoke_all_sessions
 
 router = APIRouter(prefix="/api/v1")
 
@@ -160,6 +163,23 @@ async def delete_invitation(
     if not await revoke_invitation(session, user, invitation_id):
         raise HTTPException(status_code=404, detail="INVITATION_NOT_FOUND")
     return Response(status_code=204)
+
+
+@router.post("/auth/logout-all", status_code=204, tags=["auth"])
+async def logout_all_sessions(
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> Response:
+    await revoke_all_sessions(session, user.id)
+    response = Response(status_code=204)
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        secure=get_settings().cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
 
 router.include_router(
