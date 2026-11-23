@@ -19,24 +19,32 @@ async def get_redis(request: Request) -> Redis:
     return request.app.state.auth_rate_limit_redis
 
 
-def _key(scope: str, identifier: str, settings: Settings) -> str:
+def rate_limit_key(scope: str, identifier: str, settings: Settings) -> str:
     digest = hashlib.sha256(f"{settings.secret_key}:{identifier}".encode()).hexdigest()
     return f"fidus:auth-rate-limit:{scope}:{digest}"
 
 
-async def _consume(store: RateLimitStore, key: str, settings: Settings) -> int | None:
+
+async def consume_window(store: RateLimitStore, key: str, limit: int, window_seconds: int) -> int | None:
+    """Count one hit in a fixed window; returns the seconds to wait when the limit is exceeded."""
     result = await store.eval(
         "local count = redis.call('INCR', KEYS[1]); "
         "if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]); end; "
         "return {count, redis.call('TTL', KEYS[1])}",
         1,
         key,
-        settings.auth_rate_limit_window_seconds,
+        window_seconds,
     )
     attempts, remaining = int(result[0]), int(result[1])
-    if attempts <= settings.auth_rate_limit_attempts:
+    if attempts <= limit:
         return None
     return max(1, remaining)
+
+
+async def _consume(store: RateLimitStore, key: str, settings: Settings) -> int | None:
+    return await consume_window(
+        store, key, settings.auth_rate_limit_attempts, settings.auth_rate_limit_window_seconds
+    )
 
 
 async def enforce_auth_rate_limit(
@@ -68,13 +76,13 @@ async def enforce_auth_rate_limit(
     try:
         retry_after = await _consume(
             store,
-            _key("ip", ip_address, settings),
+            rate_limit_key("ip", ip_address, settings),
             settings,
         )
         if account:
             account_retry_after = await _consume(
                 store,
-                _key("account", account, settings),
+                rate_limit_key("account", account, settings),
                 settings,
             )
             if account_retry_after is not None:

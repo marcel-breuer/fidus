@@ -9,6 +9,7 @@ from app.api.conversations import router as conversations_router
 from app.api.deps import get_user_scoped_session
 from app.api.files import router as files_router
 from app.api.tasks import router as tasks_router
+from app.api.tokens import router as tokens_router
 from app.auth.manager import (
     COOKIE_NAME,
     auth_backend,
@@ -194,6 +195,7 @@ router.include_router(
 )
 router.include_router(tasks_router)
 router.include_router(files_router)
+router.include_router(tokens_router)
 router.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
     prefix="/auth",
