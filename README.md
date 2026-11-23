@@ -18,6 +18,8 @@ docker compose exec backend pytest                                   # backend t
 docker compose run --rm frontend-dev npm test                            # frontend tests
 docker compose run --rm frontend-dev sh -c "npm run check && npm run build"
 ```
+After changing backend API models, run `./scripts/api-client.sh` to regenerate `frontend/openapi.json` (exported from the backend) and `frontend/src/lib/api/schema.d.ts` (types generated from it) and commit both. `./scripts/api-client.sh check` regenerates them and fails if they differ from the committed files; CI runs it.
+
 The backend tests create a scratch database named `<POSTGRES_DB>_test` and never touch the data database. They need the Postgres role in `DATABASE_OWNER_URL` to be allowed to create databases and roles (the bundled `db` service qualifies). The application role is cluster-wide, so a test run with a different `APP_DB_PASSWORD` changes that role's password; `./start.sh` or `docker compose run --rm migrate` restores it.
 
 `BACKEND_INSTALL_DEV=false` in `.env` builds the backend image without pytest.
