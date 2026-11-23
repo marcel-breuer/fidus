@@ -16,6 +16,12 @@ from app.auth.schemas import UserCreate, UserRead
 from app.db.models import User
 from app.db.session import system_session
 from app.modules.registry import ALL_SCOPES, modules_for_scopes
+from app.services.module_settings import (
+    UnknownModuleError,
+    enabled_module_keys,
+    list_effective_settings,
+    set_enabled,
+)
 from app.services.invitations import create_invitation, list_invitations, revoke_invitation
 
 router = APIRouter(prefix="/api/v1")
@@ -32,6 +38,16 @@ class ModuleOut(BaseModel):
     icon: str
     route: str
     scopes: list[str]
+
+
+class AdminModuleOut(BaseModel):
+    key: str
+    name_key: str
+    enabled: bool
+
+
+class ModuleSettingUpdate(BaseModel):
+    enabled: bool
 
 
 class InvitationCreate(BaseModel):
@@ -58,11 +74,16 @@ async def health() -> HealthOut:
 
 
 @router.get("/modules", response_model=list[ModuleOut], tags=["modules"])
-async def list_modules(user: User = Depends(current_active_user)) -> list[ModuleOut]:
+async def list_modules(
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> list[ModuleOut]:
     # Session users hold every scope; token scopes narrow this later.
+    enabled = await enabled_module_keys(session)
     return [
         ModuleOut(key=m.key, name_key=m.name_key, icon=m.icon, route=m.route, scopes=list(m.scopes))
         for m in modules_for_scopes(ALL_SCOPES)
+        if m.key in enabled
     ]
 
 
@@ -74,6 +95,34 @@ async def read_me(user: User = Depends(current_active_user)) -> User:
 def _require_admin(user: User) -> None:
     if not user.is_superuser:
         raise HTTPException(status_code=403, detail="ADMIN_REQUIRED")
+
+
+@router.get("/admin/modules", response_model=list[AdminModuleOut], tags=["admin"])
+async def get_admin_modules(
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> list[AdminModuleOut]:
+    _require_admin(user)
+    return [
+        AdminModuleOut(key=key, name_key=name_key, enabled=enabled)
+        for key, name_key, enabled in await list_effective_settings(session)
+    ]
+
+
+@router.put("/admin/modules/{key}", response_model=AdminModuleOut, tags=["admin"])
+async def put_admin_module(
+    key: str,
+    body: ModuleSettingUpdate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> AdminModuleOut:
+    _require_admin(user)
+    try:
+        setting = await set_enabled(session, user, key, body.enabled)
+    except UnknownModuleError as exc:
+        raise HTTPException(status_code=404, detail="MODULE_NOT_FOUND") from exc
+    module = next(module for module in modules_for_scopes(ALL_SCOPES) if module.key == key)
+    return AdminModuleOut(key=key, name_key=module.name_key, enabled=setting.enabled)
 
 
 @router.post("/invitations", response_model=InvitationCreated, status_code=201, tags=["invitations"])

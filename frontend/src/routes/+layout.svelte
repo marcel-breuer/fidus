@@ -26,7 +26,7 @@
 	<div class="shell">
 		<aside class="glass-chrome">
 			<p class="brand">{t('app.name')}</p>
-			<Sidebar modules={data.modules} current={page.url.pathname} />
+			<Sidebar modules={data.modules} current={page.url.pathname} admin={data.user.role === 'admin'} />
 			<div class="foot">
 				<p class="who">{t('nav.signedInAs', { email: data.user.email })}</p>
 				<label class="lang">

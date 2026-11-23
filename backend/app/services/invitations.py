@@ -28,7 +28,13 @@ async def create_invitation(
 
 async def list_invitations(session: AsyncSession, admin_user: User) -> list[Invitation]:
     result = await session.scalars(
-        select(Invitation).where(Invitation.created_by == admin_user.id).order_by(Invitation.created_at.desc())
+        select(Invitation)
+        .where(
+            Invitation.created_by == admin_user.id,
+            Invitation.used_at.is_(None),
+            Invitation.expires_at > datetime.now(UTC),
+        )
+        .order_by(Invitation.created_at.desc())
     )
     return list(result)
 

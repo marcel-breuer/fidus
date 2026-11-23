@@ -4,6 +4,7 @@ export const en = {
 	'common.error': 'Something went wrong. Please try again.',
 	'common.retry': 'Try again',
 	'nav.primary': 'Main navigation',
+	'nav.admin': 'Administration',
 	'nav.empty': 'No modules are available.',
 	'nav.logout': 'Sign out',
 	'nav.language': 'Language',
@@ -30,7 +31,21 @@ export const en = {
 	'auth.register.error.exists': 'An account with this email address already exists.',
 	'auth.register.error.closed': 'Registration is closed on this instance.',
 	'auth.register.error.invalid': 'Check the email address and password.',
-	'auth.register.error.rateLimited': 'Too many attempts. Please wait before trying again.'
+	'auth.register.error.rateLimited': 'Too many attempts. Please wait before trying again.',
+	'admin.title': 'Administration',
+	'admin.modules.title': 'Modules',
+	'admin.modules.empty': 'No modules are registered.',
+	'admin.modules.toggle': 'Enable or disable {module}',
+	'admin.invitations.title': 'Invitations',
+	'admin.invitations.expiry': 'Expiry in days',
+	'admin.invitations.create': 'Create invitation',
+	'admin.invitations.created': 'Copy this registration link. The invitation token is shown only once.',
+	'admin.invitations.copy': 'Copy link',
+	'admin.invitations.copied': 'Copied',
+	'admin.invitations.active': 'Active invitations',
+	'admin.invitations.empty': 'There are no active invitations.',
+	'admin.invitations.expires': 'Expires {date}',
+	'admin.invitations.revoke': 'Revoke'
 } as const;
 
 export type MessageKey = keyof typeof en;
