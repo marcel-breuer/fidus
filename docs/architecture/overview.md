@@ -4,10 +4,10 @@ Status: the scaffold is implemented (Compose stack, auth, module registry, row-l
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `db`, `redis` and the one-shot `migrate` service that `backend` and `worker` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API).
-- Auth: fastapi-users with a JWT in an httpOnly, SameSite=Lax cookie (`fidus_session`). Logout clears the cookie; a stolen token stays valid until it expires (`session_lifetime_seconds`, 14 days). The first registered user becomes admin (`is_superuser`, exposed as `role`); registrations are serialized with an advisory lock. `REGISTRATION_MODE=closed` rejects further registrations; `invite-only` behaves the same until invitations exist. Cross-site writes are refused by an `Origin` check against `APP_URL`; a full CSRF token scheme is not implemented.
+- Auth: fastapi-users with a JWT in an httpOnly, SameSite=Lax cookie (`fidus_session`). Logout clears the cookie; a stolen token stays valid until it expires (`session_lifetime_seconds`, 14 days). The first registered user becomes admin (`is_superuser`, exposed as `role`); registrations are serialized with an advisory lock. `REGISTRATION_MODE=closed` rejects further registrations; `invite-only` requires an admin-created invitation after the first user. Invitation tokens are shown once, stored as SHA-256 hashes, and expire after a configurable period (7 days by default, at most 30). Admins manage invitations through the API for now; there is no admin screen. Cross-site writes are refused by an `Origin` check against `APP_URL`; a full CSRF token scheme is not implemented.
 - Login and registration are rate limited by client IP and account identifier using Redis fixed-window counters (`AUTH_RATE_LIMIT_ATTEMPTS`, `AUTH_RATE_LIMIT_WINDOW_SECONDS`). Identifiers are salted and hashed before becoming Redis keys. If Redis is unavailable, authentication fails open and a generic warning is logged so an outage does not prevent sign-in; this means rate limits are temporarily unavailable during that outage.
-- Not implemented yet: API tokens, OAuth, admin UI, `module_settings`.
-- Row-level security: `users` is intentionally not row-level-secured, because authentication has to find a user before any context exists; the application role may only select, insert and update it. `tasks` is the example user-owned table with a forced policy. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic.
+- Not implemented yet: API tokens, OAuth, invitation and user management screens, `module_settings`.
+- Row-level security: `users` is intentionally not row-level-secured, because authentication has to find a user before any context exists; the application role may only select, insert and update it. `tasks` and `invitations` are user-owned tables with forced policies. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic.
 - Worker: taskiq with a Redis list broker, same image as the backend. The example job `tasks.count_open` runs inside the owning user's context. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
 - Modules: `GET /api/v1/modules` returns the registry entries for the session user; the sidebar renders them. Chat, files and tasks are placeholders without screens or services. Instance-wide enablement is not implemented.
 - Frontend: SvelteKit with adapter-node, server-side load of the user and modules, German and English catalogs with a typed key set.
@@ -85,7 +85,7 @@ All primary keys are ULIDs. Every user-owned table has `user_id` (indexed, forei
 
 | Area | Tables |
 | --- | --- |
-| Identity | `users`, `api_tokens` (hashed, scoped, expiring, last-used), `invitations`, `audit_log` |
+| Identity | `users`, `api_tokens` (hashed, scoped, expiring, last-used), `invitations` (created_by, token_hash, expires_at, used_at, used_by), `audit_log` |
 | Chat | `conversations`, `messages` (role, content parts, tool calls, citations), `message_attachments` |
 | Knowledge | `nodes` (folder or file tree), `file_versions`, `documents` (extracted text, source: upload, memo, agent), `chunks` (text, embedding vector, position), `memories` |
 | Audio | `memos` (audio file, status, transcript document) |
@@ -95,14 +95,14 @@ All primary keys are ULIDs. Every user-owned table has `user_id` (indexed, forei
 The embedding dimension is fixed in the config file; changing the embedding model triggers a reindex job.
 
 ## 5a. Row-level security
-- Every user-owned table has `ENABLE` and `FORCE ROW LEVEL SECURITY` with a policy `user_id = current_setting('app.user_id')`.
+- Every user-owned table has `ENABLE` and `FORCE ROW LEVEL SECURITY` with a policy matching its owner column (`user_id` or `created_by`) to `current_setting('app.user_id', true)`.
 - The backend connects with a dedicated application role that is neither superuser nor table owner and has no `BYPASSRLS`. Migrations run with a separate owner role.
 - Each request transaction runs `SET LOCAL app.user_id = <id>` (set by the repository layer from the `UserContext`); with no value set, queries return no rows.
-- Worker jobs carry the owning user id and set the same context. The few cross-user operations (authentication lookup, admin user management, usage aggregation) use narrowly scoped functions or a separate role, reviewed and tested explicitly.
+- Worker jobs carry the owning user id and set the same context. The invitation registration flow is a reviewed cross-user exception: `invitation_is_valid` and `consume_invitation` are SECURITY DEFINER functions owned by the migration role, with a fixed `public` search path, revoked PUBLIC privileges, and EXECUTE granted only to the application role. They expose only validity and atomic consumption by token hash; direct invitation queries remain scoped to `created_by`.
 - Tests cover: missing context returns nothing, cross-user reads and writes fail, and the application role cannot bypass policies.
 
 ## 6. Authentication and multi-user
-- Local accounts with fastapi-users. The first registered user becomes admin; afterwards registration is `open` (default), `invite-only` or `closed`, set by the admin via `REGISTRATION_MODE` or the admin UI. With `open` registration, every registered user can consume the instance's OpenAI key; operators exposing an instance to the internet should consider `invite-only` or `closed`. Roles: `admin`, `member`.
+- Local accounts with fastapi-users. The first registered user becomes admin; afterwards registration is `open` (default), `invite-only` or `closed`, set by the admin via `REGISTRATION_MODE` or the admin UI. In `invite-only` mode, an administrator creates a single-use invitation through the REST API; the registration link carries its token in the `invite` query parameter. With `open` registration, every registered user can consume the instance's OpenAI key; operators exposing an instance to the internet should consider `invite-only` or `closed`. Roles: `admin`, `member`.
 - Web: httpOnly, SameSite cookie session, CSRF protection for state-changing requests.
 - API, MCP and later apps: bearer tokens. Personal access tokens (created in the UI, shown once, stored hashed, scoped, revocable) cover MCP clients and scripts. Native apps later use OAuth 2.0 authorization code with PKCE against the same backend; MCP clients that follow the MCP authorization specification use the same OAuth endpoints. Verify the current MCP authorization specification at implementation time.
 - Scopes are capability-based (for example `knowledge:read`, `files:write`, `tasks:write`, `chat:use`). A token never exceeds its user's permissions.

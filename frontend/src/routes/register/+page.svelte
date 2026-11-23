@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { login, register, type AuthError } from '$lib/api/client';
 	import { getT } from '$lib/i18n/context';
@@ -17,11 +18,12 @@
 	let password = $state('');
 	let error = $state<AuthError | null>(null);
 	let busy = $state(false);
+	const invitationToken = $derived(page.url.searchParams.get('invite') ?? undefined);
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
 		busy = true;
-		error = (await register(email, password)) ?? (await login(email, password));
+		error = (await register(email, password, invitationToken)) ?? (await login(email, password));
 		busy = false;
 		if (!error) await goto('/', { invalidateAll: true });
 	}

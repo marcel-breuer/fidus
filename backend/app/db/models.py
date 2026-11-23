@@ -28,3 +28,18 @@ class Task(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     remind_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Invitation(TimestampMixin, Base):
+    __tablename__ = "invitations"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    created_by: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    used_by: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="SET NULL")
+    )
