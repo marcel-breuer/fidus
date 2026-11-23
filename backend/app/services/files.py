@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import new_id
 from app.db.models import FileVersion, Node, User
+from app.services.indexing import create_pending_document
 from app.storage.base import Storage, StorageTooLarge
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -197,6 +198,7 @@ async def upload_file(
         )
         session.add(version)
         await session.flush()
+        await create_pending_document(session, user, node, version)
         return node, version
     except BaseException:
         if await storage.exists(storage_key):
@@ -261,6 +263,15 @@ async def soft_delete(session: AsyncSession, user: User, node_id: str) -> bool:
             "WHERE id IN (SELECT id FROM tree) AND user_id = :user_id AND deleted_at IS NULL"
         ),
         {"id": node.id, "user_id": user.id, "now": now},
+    )
+    await session.execute(
+        text(
+            "WITH RECURSIVE tree(id) AS (SELECT id FROM nodes WHERE id = :id AND user_id = :user_id "
+            "UNION ALL SELECT child.id FROM nodes child JOIN tree ON child.parent_id = tree.id "
+            "WHERE child.user_id = :user_id) "
+            "DELETE FROM documents WHERE user_id = :user_id AND node_id IN (SELECT id FROM tree)"
+        ),
+        {"id": node.id, "user_id": user.id},
     )
     return True
 

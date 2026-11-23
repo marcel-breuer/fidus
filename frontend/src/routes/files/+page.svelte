@@ -6,6 +6,7 @@
 		listFileNodes, listFileVersions, renameNode, uploadFile, validateFile,
 		type FileNode, type FileVersion
 	} from '$lib/api/files';
+	import { debounce, getDocumentStatus, groupCitations, reindexDocument, searchKnowledge, type Citation, type DocumentStatus } from '$lib/api/knowledge';
 	import { formatDate } from '$lib/i18n';
 	import { getT } from '$lib/i18n/context';
 	import { Alert, Button, TextField } from '$lib/ui';
@@ -20,10 +21,26 @@
 	let editName = $state('');
 	let knownFolders = $state<Map<string, Pick<FileNode, 'id' | 'parent_id' | 'name'>>>(new Map());
 	let versions = $state<Record<string, FileVersion[]>>({});
+	let documentStates = $state<Record<string, DocumentStatus>>({});
+	let searchQuery = $state('');
+	let searchResults = $state<Citation[]>([]);
+	let searchLoading = $state(false);
+	let searchError = $state(false);
 	let uploadStates = $state<{ id: number; name: string; progress: number; state: 'uploading' | 'done' | 'error'; reason?: string }[]>([]);
 	let uploadCounter = 0;
 	let folderId = $derived(page.url.searchParams.get('folder'));
 	let breadcrumbs = $derived(buildBreadcrumbs(folderId, knownFolders, t('files.root')));
+	let searchGroups = $derived(groupCitations(searchResults));
+
+	const debouncedSearch = debounce((query: string) => {
+		if (!query.trim()) { searchResults = []; searchError = false; return; }
+		searchLoading = true;
+		searchError = false;
+		void searchKnowledge(query).then((results) => { searchResults = results; }).catch(() => {
+			searchResults = [];
+			searchError = true;
+		}).finally(() => { searchLoading = false; });
+	}, 300);
 
 	function messageFor(code: string): string {
 		const keys: Record<string, 'files.invalidName' | 'files.unsupportedType' | 'files.nameConflict' | 'files.notFound' | 'files.moveCycle' | 'files.uploadTooLarge'> = {
@@ -55,6 +72,43 @@
 	}
 
 	$effect(() => { void refresh(folderId); });
+
+	$effect(() => {
+		const pending = items.filter((item) => item.kind === 'file' && (!documentStates[item.id] || documentStates[item.id].status === 'pending'));
+		if (!pending.length) return;
+		let active = true;
+		const poll = async () => {
+			for (const item of pending) {
+				try {
+					const status = await getDocumentStatus(item.id);
+					if (active) documentStates = { ...documentStates, [item.id]: status };
+				} catch (cause) {
+					if (active && cause instanceof Error && cause.message === 'DOCUMENT_NOT_FOUND') {
+						documentStates = { ...documentStates, [item.id]: { status: 'failed', chunk_count: 0, error_code: 'DOCUMENT_NOT_FOUND' } };
+					}
+				}
+			}
+		};
+		void poll();
+		const timer = setInterval(() => { void poll(); }, 3000);
+		return () => { active = false; clearInterval(timer); };
+	});
+
+	function statusLabel(status: DocumentStatus): string {
+		if (status.status === 'pending') return t('files.indexPending');
+		if (status.status === 'ready') return t('files.indexReady', { count: status.chunk_count });
+		const reasonKey: Record<string, 'files.indexAiNotConfigured' | 'files.indexEncryptedPdf' | 'files.indexEmptyText' | 'files.indexTooManyPages' | 'files.indexCorrupt' | 'files.indexFailed'> = {
+			AI_NOT_CONFIGURED: 'files.indexAiNotConfigured', ENCRYPTED_PDF: 'files.indexEncryptedPdf',
+			EMPTY_TEXT: 'files.indexEmptyText', TOO_MANY_PAGES: 'files.indexTooManyPages',
+			CORRUPT_FILE: 'files.indexCorrupt'
+		};
+		return t('files.indexFailedWithReason', { reason: t(reasonKey[status.error_code ?? ''] ?? 'files.indexFailed') });
+	}
+
+	async function reindex(item: FileNode) {
+		try { documentStates = { ...documentStates, [item.id]: await reindexDocument(item.id) }; }
+		catch { error = t('files.error'); }
+	}
 
 	function navigate(id: string | null) {
 		void goto(id ? `/files?folder=${encodeURIComponent(id)}` : '/files');
@@ -145,6 +199,22 @@
 		<label class="file-picker"><span>{t('files.chooseFiles')}</span><input type="file" multiple accept=".txt,.md,.markdown,.pdf,.docx" onchange={selectFiles} /></label>
 	</div>
 	{#if error}<Alert>{error}</Alert>{/if}
+	<section class="search" aria-labelledby="knowledge-heading">
+		<h2 id="knowledge-heading">{t('files.searchTitle')}</h2>
+		<TextField label={t('files.searchLabel')} placeholder={t('files.searchPlaceholder')} bind:value={searchQuery} oninput={() => debouncedSearch(searchQuery)} />
+		{#if searchLoading}<p role="status">{t('files.searching')}</p>
+		{:else if searchError}<p role="alert">{t('files.searchError')}</p>
+		{:else if searchQuery.trim() && searchResults.length === 0}<p class="empty">{t('files.searchEmpty')}</p>
+		{:else if searchGroups.length}
+			<ul class="search-results">
+				{#each searchGroups as group (group.nodeId)}
+					<li><a href={group.folderId ? `/files?folder=${encodeURIComponent(group.folderId)}` : '/files'}>{group.fileName}</a>
+						<ol>{#each group.citations as citation (citation.chunk_id)}<li><span>{t('files.resultPosition', { position: citation.position + 1, version: citation.version })}</span><p>{citation.snippet}</p></li>{/each}</ol>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
 	{#if uploadStates.length}
 		<ul class="uploads" aria-label={t('files.upload')}>
 			{#each uploadStates as upload (upload.id)}
@@ -176,6 +246,7 @@
 					<div class="actions">
 						{#if editingId !== item.id}<Button variant="quiet" onclick={() => beginRename(item)}>{t('files.rename')}</Button>{/if}
 						{#if item.kind === 'file'}
+							{#if documentStates[item.id]}<span class="index-status" role="status">{statusLabel(documentStates[item.id])}</span>{#if documentStates[item.id].status === 'failed'}<Button variant="quiet" onclick={() => reindex(item)}>{t('files.reindex')}</Button>{/if}{/if}
 							<a class="button-link" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download`}>{t('files.download')}</a>
 							<details ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadVersions(item); }}><summary>{t('files.versions')}</summary>{#if versions[item.id]}<ol>{#each versions[item.id] as version (version.id)}<li><a href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download?version=${version.version}`}>{t('files.versions')} {version.version}</a><span>{formatFileSize(version.size_bytes, page.data.locale)} · {formatDate(page.data.locale, new Date(version.created_at))}</span></li>{/each}</ol>{/if}</details>
 						{/if}
@@ -189,6 +260,13 @@
 
 <style>
 	.files { padding: clamp(1rem, 3vw, 1.5rem); display: grid; gap: 1rem; }
+	.search { display: grid; gap: .7rem; border-top: 1px solid var(--glass-rim); padding-top: 1rem; }
+	.search h2 { margin: 0; font-size: 1.15rem; }
+	.search-results { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
+	.search-results > li { border: 1px solid var(--glass-rim); border-radius: .8rem; padding: .8rem; }
+	.search-results a { color: var(--accent); font-weight: 650; }
+	.search-results ol { display: grid; gap: .5rem; padding-left: 1.4rem; }
+	.search-results p, .index-status { margin: .2rem 0; color: var(--muted); overflow-wrap: anywhere; }
 	h1 { margin: 0; }
 	.breadcrumbs, .tools, .create, .actions, .rename { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; }
 	.breadcrumbs { align-items: center; overflow-wrap: anywhere; }

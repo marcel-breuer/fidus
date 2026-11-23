@@ -229,6 +229,23 @@ export interface paths {
         patch: operations["patch_node_api_v1_files_nodes__node_id__patch"];
         trace?: never;
     };
+    "/api/v1/files/nodes/{node_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Document Status */
+        get: operations["get_document_status_api_v1_files_nodes__node_id__document_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files/nodes/{node_id}/download": {
         parameters: {
             query?: never;
@@ -240,6 +257,23 @@ export interface paths {
         get: operations["download_node_api_v1_files_nodes__node_id__download_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/nodes/{node_id}/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Reindex */
+        post: operations["post_reindex_api_v1_files_nodes__node_id__reindex_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -327,6 +361,23 @@ export interface paths {
         post?: never;
         /** Delete Invitation */
         delete: operations["delete_invitation_api_v1_invitations__invitation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Knowledge Search */
+        get: operations["get_knowledge_search_api_v1_knowledge_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -571,6 +622,27 @@ export interface components {
             /** Content */
             content: string;
         };
+        /** CitationOut */
+        CitationOut: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Document Id */
+            document_id: string;
+            /** File Name */
+            file_name: string;
+            /** Folder Id */
+            folder_id: string | null;
+            /** Node Id */
+            node_id: string;
+            /** Position */
+            position: number;
+            /** Score */
+            score: number;
+            /** Snippet */
+            snippet: string;
+            /** Version */
+            version: number;
+        };
         /** ConversationCreate */
         ConversationCreate: {
             /** Title */
@@ -604,6 +676,15 @@ export interface components {
         ConversationRename: {
             /** Title */
             title: string;
+        };
+        /** DocumentStatusOut */
+        DocumentStatusOut: {
+            /** Chunk Count */
+            chunk_count: number;
+            /** Error Code */
+            error_code: string | null;
+            /** Status */
+            status: string;
         };
         /** ErrorModel */
         ErrorModel: {
@@ -759,6 +840,11 @@ export interface components {
             task_id: string;
             /** Task Title */
             task_title: string;
+        };
+        /** SearchOut */
+        SearchOut: {
+            /** Results */
+            results: components["schemas"]["CitationOut"][];
         };
         /** SearchResult */
         SearchResult: {
@@ -1473,6 +1559,37 @@ export interface operations {
             };
         };
     };
+    get_document_status_api_v1_files_nodes__node_id__document_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     download_node_api_v1_files_nodes__node_id__download_get: {
         parameters: {
             query?: {
@@ -1493,6 +1610,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_reindex_api_v1_files_nodes__node_id__reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentStatusOut"];
                 };
             };
             /** @description Validation Error */
@@ -1660,6 +1808,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_knowledge_search_api_v1_knowledge_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchOut"];
+                };
             };
             /** @description Validation Error */
             422: {

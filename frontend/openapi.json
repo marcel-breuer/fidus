@@ -123,6 +123,66 @@
         "title": "ChatMessageCreate",
         "type": "object"
       },
+      "CitationOut": {
+        "properties": {
+          "chunk_id": {
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "document_id": {
+            "title": "Document Id",
+            "type": "string"
+          },
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chunk_id",
+          "document_id",
+          "node_id",
+          "folder_id",
+          "file_name",
+          "version",
+          "position",
+          "snippet",
+          "score"
+        ],
+        "title": "CitationOut",
+        "type": "object"
+      },
       "ConversationCreate": {
         "properties": {
           "title": {
@@ -213,6 +273,36 @@
           "title"
         ],
         "title": "ConversationRename",
+        "type": "object"
+      },
+      "DocumentStatusOut": {
+        "properties": {
+          "chunk_count": {
+            "title": "Chunk Count",
+            "type": "integer"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "chunk_count",
+          "error_code"
+        ],
+        "title": "DocumentStatusOut",
         "type": "object"
       },
       "ErrorModel": {
@@ -636,6 +726,22 @@
           "state"
         ],
         "title": "ReminderOut",
+        "type": "object"
+      },
+      "SearchOut": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CitationOut"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "SearchOut",
         "type": "object"
       },
       "SearchResult": {
@@ -1922,6 +2028,53 @@
         ]
       }
     },
+    "/api/v1/files/nodes/{node_id}/document": {
+      "get": {
+        "operationId": "get_document_status_api_v1_files_nodes__node_id__document_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Document Status",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/api/v1/files/nodes/{node_id}/download": {
       "get": {
         "operationId": "download_node_api_v1_files_nodes__node_id__download_get",
@@ -1978,6 +2131,53 @@
           }
         ],
         "summary": "Download Node",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/api/v1/files/nodes/{node_id}/reindex": {
+      "post": {
+        "operationId": "post_reindex_api_v1_files_nodes__node_id__reindex_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Reindex",
         "tags": [
           "files"
         ]
@@ -2212,6 +2412,73 @@
         "summary": "Delete Invitation",
         "tags": [
           "invitations"
+        ]
+      }
+    },
+    "/api/v1/knowledge/search": {
+      "get": {
+        "operationId": "get_knowledge_search_api_v1_knowledge_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 20,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Get Knowledge Search",
+        "tags": [
+          "files"
         ]
       }
     },

@@ -1,6 +1,6 @@
 # Fidus — Architecture Overview
 
-Status: the scaffold, the tasks module with in-app reminders, chat Stages 1–2 and Files Stage 1 are implemented. Other chat capabilities, Files Stage 2, audio, tokens and the MCP server remain design only. Update this file together with the code.
+Status: the scaffold, the tasks module with in-app reminders, chat Stages 1–2 and Files Stages 1–2 are implemented. Other chat capabilities, audio, tokens and the MCP server remain design only. Update this file together with the code.
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `scheduler`, `db`, `redis` and the one-shot `migrate` service that `backend`, `worker` and `scheduler` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API); the scheduler only needs Redis on `internal`.
@@ -11,10 +11,11 @@ Status: the scaffold, the tasks module with in-app reminders, chat Stages 1–2 
 - Row-level security: `users` and `sessions` are intentionally not row-level-secured, because authentication has to look them up before any user context exists. The application role may only select, insert and update `users`, and only select, insert and delete `sessions`. `tasks`, `reminders`, `invitations`, `nodes` and `file_versions` are user-owned tables with forced policies. `module_settings` is instance-wide, has no `user_id` and intentionally no RLS policy; the application role may select, insert and update it. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic. The reviewed SECURITY DEFINER exception `users_with_due_tasks(now)` returns only user ids for the reminder worker; PUBLIC execution is revoked and only the application role can execute it.
 - Worker: taskiq with a Redis list broker, same image as the backend. `reminders.mark_due` runs every minute, finds users through the narrowly scoped `users_with_due_tasks` function, checks task module enablement, materializes reminders in each user's RLS context and publishes reminder ids to that user's Redis channel. `tasks.count_open` remains an example job. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
 - Scheduler: Taskiq's label schedule source reads recurring jobs from the same backend image and Redis broker. Its healthcheck verifies that the scheduler command is still running as PID 1.
-- Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint; task APIs, file APIs and the reminder worker enforce module enablement. Chat completion and Files Stage 2 remain unimplemented. Disabling a module leaves its data untouched.
+- Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint; task APIs, file APIs and the reminder worker enforce module enablement. Disabling a module leaves its data untouched.
 - Tasks and reminders: task CRUD, completion/reopen, soft delete and user-scoped reminder operations are implemented in shared services behind REST adapters. The task page provides localized task entry, filtering, editing and completion. The reminder banner loads active reminders and receives refreshed lists over per-user Redis-backed SSE; the stream uses short-lived user sessions and releases its Redis subscription on disconnect.
 - Chat Stages 1–2 (`Refs #18`): fixed model configuration is loaded from `backend/app/ai/models.toml`; a provider interface and OpenAI chat provider are present. User-owned `conversations` and `messages` tables have forced RLS. REST routes provide conversation CRUD, message listing, full-text message search and `POST /api/v1/conversations/{id}/messages/stream` (SSE). The chat orchestrator stores each user turn before streaming, builds a budgeted history request, streams text deltas and stores a completed assistant turn with token counts. The web UI supports conversation management, streaming, Markdown and code. Memory and durable memories, web search, citations, attachments and agent tools are **not implemented yet**. The streaming route is not represented in the checked-in generated API artifacts; regenerate `frontend/openapi.json` and `frontend/src/lib/api/schema.d.ts` from the live OpenAPI schema.
-- Files Stage 1 (`Refs #19`): user-owned `nodes` and `file_versions` have forced RLS. The `files_data` named volume is mounted at `/data/files` for backend and worker and accessed through a local storage interface; REST routes support folders, streamed uploads, rename/move, soft deletion, version lists and attachment downloads. The browser supports folder navigation, upload progress, rename, delete, download and version display. No text extraction, embedding, search or S3 adapter is implemented. `frontend/openapi.json` and generated `schema.d.ts` need regeneration for the new API routes.
+- Files Stage 1 (`Refs #19`): user-owned `nodes` and `file_versions` have forced RLS. The `files_data` named volume is mounted at `/data/files` for backend and worker and accessed through a local storage interface; REST routes support folders, streamed uploads, rename/move, soft deletion, version lists and attachment downloads.
+- Files Stage 2 (`Refs #19`): user-owned `documents` and `chunks` also have forced RLS. Upload creates a pending document in the same transaction as its version; a post-commit callback queues extraction and indexing. The worker extracts UTF-8 text/Markdown, PDF or DOCX, chunks with overlap, embeds via the injected provider, and atomically replaces chunk rows. Failed extraction and embedding store stable error codes. Reindex queues the latest version. Search combines cosine vector ranking and PostgreSQL simple full-text ranking with reciprocal rank fusion, filtering deleted files and non-latest versions. `/files` shows indexing status, polls pending jobs, offers retry for failures and searches with source snippets. `pgvector>=0.3` supplies SQLAlchemy `Vector(1536)` and the asyncpg codec registered on database connections; the configured embedding dimension is 1536. Audio transcripts as documents, agent-created files, citations in chat answers and chat attachments remain unimplemented. The generated API artifacts `frontend/openapi.json` and `frontend/src/lib/api/schema.d.ts` need regeneration for the new routes.
 - Frontend: SvelteKit with adapter-node, server-side load of the user and modules, a generated OpenAPI type schema used by a shared `openapi-fetch` client, German and English catalogs with a typed key set.
 
 
@@ -101,6 +102,7 @@ The embedding dimension is fixed in the config file; changing the embedding mode
 
 ## 5a. Row-level security
 - Every user-owned table has `ENABLE` and `FORCE ROW LEVEL SECURITY` with a policy matching its owner column (`user_id` or `created_by`) to `current_setting('app.user_id', true)`.
+- `documents` and `chunks` use the same forced owner policy; service queries also include `user_id` filters.
 - Instance-wide `module_settings` has no `user_id` and no RLS policy; it is available to the application role for admin-managed enablement.
 - The backend connects with a dedicated application role that is neither superuser nor table owner and has no `BYPASSRLS`. Migrations run with a separate owner role.
 - Each request transaction runs `SET LOCAL app.user_id = <id>` (set by the repository layer from the `UserContext`); with no value set, queries return no rows.
@@ -117,19 +119,21 @@ The embedding dimension is fixed in the config file; changing the embedding mode
 
 ## 7. Chat and agent
 - Orchestrator loop: user message -> retrieve context (memory, RAG) -> model call with registered tools -> execute tool calls through services -> stream result.
+- The Files Stage 2 knowledge service and Files-page search are implemented; the chat orchestrator does not yet retrieve indexed files or attach citations to answers.
 - Streaming to the browser via Server-Sent Events: tokens, tool-call status, citations, final message id. Reconnect resumes by message id.
 - Tools are the capabilities from section 4 filtered by the user's scopes. Tool output and retrieved content are untrusted: they are delimited in prompts and cannot grant permissions. Write tools (file, task) are attributed to the user and written to `audit_log`; a per-user policy chooses "ask before write" (default) or "allow".
 - Web search uses the provider's search capability behind the `WebSearch` interface; fetched pages are treated as untrusted and size-limited; outbound fetching is protected against requests to private address ranges.
 - Memory: the conversation history is searchable; durable facts are stored as `memories` that the user can view, edit and delete.
 
 ## 8. Knowledge pipeline (RAG)
-Files Stage 1 (`Refs #19`) stores uploaded versions and provides the browser and download paths. It does not queue indexing jobs. The following extraction, embedding and retrieval pipeline is planned for Stage 2 and is not implemented yet.
-1. Ingest: upload or agent-created file is stored, a `file_version` row is created, a job is queued.
-2. Extract: text extraction per type (plain text, Markdown, PDF, DOCX, images later); failures are visible in the UI.
-3. Chunk and embed: chunking with overlap, embeddings via the provider interface, rows in `chunks`.
-4. Retrieve: hybrid search (vector similarity plus PostgreSQL full-text), scoped by `user_id`, returned with source references for citations.
-5. Update: new file version or deletion removes stale chunks.
-Chunk size, overlap and top-k are configuration values with documented defaults chosen by tests, not assumptions.
+Files Stage 1 (`Refs #19`) stores uploaded versions and provides the browser and download paths. Stage 2 implements upload ingestion, extraction, indexing and retrieval:
+1. Ingest: upload creates a `documents` row in the file transaction; an after-commit callback queues `files.index_document`. Queue failures are logged and leave the row pending for retry.
+2. Extract: bounded UTF-8 text/Markdown, PDF (maximum 500 pages; encrypted PDFs fail) and DOCX extraction. Error details are stable codes; file contents are treated as untrusted.
+3. Chunk and embed: chunk size 1200 characters, overlap 200 characters, batches up to 64 embeddings, configured dimension 1536. Chunk replacement is transactional and failures do not expose provider exception text.
+4. Retrieve: cosine vector top-k and PostgreSQL simple full-text top-k are merged by reciprocal rank fusion (`k=60`), scoped by owner, and exclude soft-deleted files and old versions. Results include source file, version, chunk position and snippet.
+5. Update: a newer version is searchable only when its indexing is ready and removes stale chunks; soft deletion removes document text and chunks from search.
+
+Not implemented: audio transcripts as documents, agent-created files, citations in chat answers and chat attachments. The Files page currently exposes indexed search directly.
 
 ## 9. Audio
 - Browser records with MediaRecorder and uploads; file upload uses the same path.
@@ -147,6 +151,7 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 - Prefix `/api/v1`, OpenAPI generated from the code, TypeScript types generated from the schema and consumed by a shared `openapi-fetch` client for browser and server requests.
 - Tasks REST operations: `POST/GET /tasks`, `GET/PATCH/DELETE /tasks/{id}`, `POST /tasks/{id}/complete`, `POST /tasks/{id}/reopen`, `GET /reminders`, `POST /reminders/{id}/dismiss`, and `GET /reminders/stream`. All are authenticated and gated by tasks-module enablement.
 - Files Stage 1 (`Refs #19`): `GET /files/nodes`, `POST /files/folders`, `POST /files/upload`, `PATCH/DELETE /files/nodes/{id}`, `GET /files/nodes/{id}/download`, and `GET /files/nodes/{id}/versions`. Routes are authenticated and gated by files-module enablement; upload and node reads are user-scoped.
+- Files Stage 2 (`Refs #19`): `GET /files/nodes/{id}/document`, `POST /files/nodes/{id}/reindex`, and `GET /knowledge/search?q=&limit=` provide indexing status, latest-version retry and scoped hybrid search. All are authenticated and gated by files-module enablement; writes use CSRF protection.
 - Cursor pagination, consistent error shape, idempotency keys for create operations, request ids in responses and logs.
 - Change feed for later offline clients: list endpoints support `updated_since` and tombstones (`deleted_at`). Sync itself is out of scope for the MVP.
 

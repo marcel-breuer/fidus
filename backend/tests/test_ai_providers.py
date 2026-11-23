@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from app.ai import deps
 from app.ai.fakes import FakeChatProvider
-from app.ai.openai_provider import OpenAIChatProvider
+from app.ai.openai_provider import OpenAIChatProvider, OpenAIEmbeddingProvider
 from app.ai.providers import ChatMessage, ChatRequest, Completed, TextDelta, ToolCall, Usage
 
 
@@ -61,6 +61,37 @@ async def test_openai_provider_maps_text_tool_and_completion_events() -> None:
     assert client.responses.calls[0]["input"] == [
         {"role": "system", "content": "system"}, {"role": "user", "content": "Hi"}
     ]
+
+
+async def test_openai_embeddings_batch_at_64_and_preserve_order() -> None:
+    class Embeddings:
+        calls: list[dict[str, object]] = []
+
+        async def create(self, **kwargs):
+            self.calls.append(kwargs)
+            inputs = kwargs["input"]
+            return SimpleNamespace(data=[
+                SimpleNamespace(index=index, embedding=[float(index)])
+                for index in reversed(range(len(inputs)))
+            ])
+
+    class Client:
+        def __init__(self) -> None:
+            self.embeddings = Embeddings()
+
+    client = Client()
+    vectors = await OpenAIEmbeddingProvider(client).embed([f"text-{index}" for index in range(65)])
+    assert [len(call["input"]) for call in client.embeddings.calls] == [64, 1]
+    assert vectors[0] == [0.0] and vectors[63] == [63.0] and vectors[-1] == [0.0]
+    assert client.embeddings.calls[0]["dimensions"] == 1536
+
+
+def test_embedding_provider_requires_configured_key(monkeypatch) -> None:
+    monkeypatch.setattr(deps, "get_settings", lambda: SimpleNamespace(openai_api_key=""))
+    with pytest.raises(HTTPException) as error:
+        deps.get_embedding_provider()
+    assert error.value.status_code == 503
+    assert error.value.detail == "AI_NOT_CONFIGURED"
 
 
 def test_chat_provider_requires_configured_key(monkeypatch) -> None:
