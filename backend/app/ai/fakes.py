@@ -11,4 +11,6 @@ class FakeChatProvider:
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatEvent]:
         self.requests.append(request)
         for reply in self.replies:
+            if isinstance(reply, Exception):
+                raise reply
             yield reply

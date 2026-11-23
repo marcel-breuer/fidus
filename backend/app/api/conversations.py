@@ -1,13 +1,19 @@
+import json
+from collections.abc import AsyncIterator
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.deps import get_chat_provider
+from app.ai.providers import ChatProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
 from app.db.models import Conversation, Message, User
 from app.modules.guard import require_module
+from app.services import chat as chat_service
 from app.services import conversations as service
 
 router = APIRouter(
@@ -70,6 +76,68 @@ class SearchResult(BaseModel):
     conversation_id: str
     message_id: str
     snippet: str
+
+
+class ChatMessageCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=20_000)
+
+
+def _sse(event: str, payload: dict[str, object]) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
+
+
+async def _chat_events(
+    initial: chat_service.ChatStreamEvent,
+    events: AsyncIterator[chat_service.ChatStreamEvent],
+) -> AsyncIterator[str]:
+    try:
+        current: chat_service.ChatStreamEvent | None = initial
+        while current is not None:
+            if isinstance(current, chat_service.UserMessageStored):
+                yield _sse("message", {
+                    "id": current.id,
+                    "conversation_id": current.conversation_id,
+                    "role": "user",
+                    "content": current.content,
+                    "created_at": current.created_at.isoformat(),
+                    "tool_calls": None,
+                    "citations": None,
+                    "input_tokens": None,
+                    "output_tokens": None,
+                })
+            elif isinstance(current, chat_service.Delta):
+                yield _sse("delta", {"text": current.text})
+            elif isinstance(current, chat_service.Done):
+                yield _sse("done", {"message_id": current.message_id, "title": current.title})
+            else:
+                yield _sse("error", {"code": current.code})
+                return
+            try:
+                current = await events.__anext__()
+            except StopAsyncIteration:
+                current = None
+    finally:
+        await events.aclose()
+
+
+@router.post("/conversations/{conversation_id}/messages/stream")
+async def stream_message(
+    conversation_id: str,
+    body: ChatMessageCreate,
+    user: User = Depends(current_active_user),
+    provider: ChatProvider = Depends(get_chat_provider),
+) -> StreamingResponse:
+    events = chat_service.run_chat_turn(user, conversation_id, body.content, provider)
+    try:
+        initial = await events.__anext__()
+    except chat_service.NotFound as exc:
+        await events.aclose()
+        raise HTTPException(status_code=404, detail="CONVERSATION_NOT_FOUND") from exc
+    return StreamingResponse(
+        _chat_events(initial, events),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def _invalid_value(exc: ValueError) -> HTTPException:
