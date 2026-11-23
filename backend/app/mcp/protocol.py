@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.providers import EmbeddingProvider
 from app.mcp.auth import McpPrincipal
 from app.mcp.tools import TOOLS, TOOLS_BY_NAME, Tool, ToolContext, ToolError
+from app.services import usage
 from app.services.module_settings import enabled_module_keys
 
 LATEST_PROTOCOL_VERSION = "2025-06-18"
@@ -93,6 +94,7 @@ async def _tools_call(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]
         raise JsonRpcError(INVALID_PARAMS, "UNKNOWN_TOOL")
     if not _tool_allowed(tool, ctx.principal):
         raise JsonRpcError(INSUFFICIENT_SCOPE, "INSUFFICIENT_SCOPE", {"required_scope": tool.scope})
+    await usage.record(ctx.principal.user.id, mcp_calls=1)
     arguments = params.get("arguments") or {}
     try:
         parsed = tool.input_model.model_validate(arguments)

@@ -9,6 +9,7 @@ from app.ai.config import get_model_config
 from app.ai.providers import EmbeddingProvider
 from app.db.models import Chunk, Document, FileVersion, Node, User
 from app.db.session import user_session
+from app.services import usage
 from app.services.extraction import ExtractionError, chunk_text, extract_text
 from app.storage.base import Storage
 
@@ -131,6 +132,7 @@ async def index_document(
         document.status = "ready"
         document.error_code = None
         document.chunk_count = len(pieces)
+        await usage.add(session, user_id, {usage.EMBEDDING_CHUNKS: len(pieces)})
 
 
 async def latest_document(session: AsyncSession, user: User, node_id: str) -> Document | None:
@@ -190,3 +192,4 @@ async def index_document_text(user_id: str, document_id: str, embedder: Embeddin
         document.status = "ready"
         document.error_code = None
         document.chunk_count = len(pieces)
+        await usage.add(session, user_id, {usage.EMBEDDING_CHUNKS: len(pieces)})

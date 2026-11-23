@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.ai.providers import EmbeddingProvider, TranscriptionProvider
 from app.db.models import Document, Memo
 from app.db.session import user_session
+from app.services import usage
 from app.services.indexing import index_document_text
 from app.storage.base import Storage
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 # so any recording up to the upload cap yields segments that fit.
 SEGMENT_SECONDS = 600
 FFMPEG_TIMEOUT_SECONDS = 900
+SEGMENT_BITRATE = 32_000  # bits per second, matches `-b:a 32k` below
 
 Segmenter = Callable[[bytes, str], Awaitable[list[bytes]]]
 
@@ -62,6 +64,11 @@ async def split_with_ffmpeg(data: bytes, extension: str, segment_seconds: int = 
     return segments
 
 
+def audio_seconds(segments: list[bytes]) -> int:
+    """Duration of the re-encoded segments. They are constant-bitrate MP3, so size maps to time."""
+    return round(sum(len(segment) for segment in segments) * 8 / SEGMENT_BITRATE)
+
+
 async def transcribe_segments(
     data: bytes,
     extension: str,
@@ -69,6 +76,17 @@ async def transcribe_segments(
     segmenter: Segmenter = split_with_ffmpeg,
     language: str | None = None,
 ) -> str:
+    return (await _transcribe(data, extension, transcriber, segmenter, language))[0]
+
+
+async def _transcribe(
+    data: bytes,
+    extension: str,
+    transcriber: TranscriptionProvider,
+    segmenter: Segmenter,
+    language: str | None,
+) -> tuple[str, int]:
+    """Transcript plus the seconds of audio sent to the provider."""
     segments = await segmenter(data, extension)
     parts: list[str] = []
     for index, segment in enumerate(segments):
@@ -79,7 +97,7 @@ async def transcribe_segments(
     text = " ".join(part for part in parts if part).strip()
     if not text:
         raise TranscriptionError("EMPTY_TRANSCRIPT")
-    return text
+    return text, audio_seconds(segments)
 
 
 async def _fail(user_id: str, memo_id: str, code: str) -> None:
@@ -124,7 +142,7 @@ async def process_memo(
             content = bytearray()
             async for block in storage.open(audio_key):
                 content.extend(block)
-            text = await transcribe_segments(bytes(content), extension, transcriber, segmenter, language)
+            text, seconds = await _transcribe(bytes(content), extension, transcriber, segmenter, language)
         except TranscriptionError as exc:
             await _fail(user_id, memo_id, exc.code)
             return
@@ -145,6 +163,7 @@ async def process_memo(
             memo.status = "ready"
             memo.error_code = None
             document_id = document.id
+            await usage.add(session, user_id, {usage.TRANSCRIPTION_SECONDS: seconds})
 
     assert document_id is not None
     if embedder is None:
