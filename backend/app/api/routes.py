@@ -7,6 +7,7 @@ from app.auth.manager import (
     current_active_user,
     fastapi_users,
 )
+from app.auth.rate_limit import enforce_auth_rate_limit
 from app.auth.schemas import UserCreate, UserRead
 from app.db.models import User
 from app.db.session import system_session
@@ -52,7 +53,15 @@ async def read_me(user: User = Depends(current_active_user)) -> User:
     return user
 
 
-router.include_router(fastapi_users.get_auth_router(auth_backend), prefix="/auth", tags=["auth"])
 router.include_router(
-    fastapi_users.get_register_router(UserRead, UserCreate), prefix="/auth", tags=["auth"]
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth",
+    tags=["auth"],
+    dependencies=[Depends(enforce_auth_rate_limit)],
+)
+router.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+    dependencies=[Depends(enforce_auth_rate_limit)],
 )

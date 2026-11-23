@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
+from redis.asyncio import Redis
 
 from app.api.routes import router
 from app.auth.manager import RegistrationClosedError
@@ -19,9 +20,13 @@ def _origin(url: str) -> str:
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    yield
-    await dispose_engine()
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.auth_rate_limit_redis = Redis.from_url(get_settings().redis_url, decode_responses=True)
+    try:
+        yield
+    finally:
+        await app.state.auth_rate_limit_redis.aclose()
+        await dispose_engine()
 
 
 def create_app() -> FastAPI:

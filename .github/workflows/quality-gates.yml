@@ -48,7 +48,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: pip install -e ".[dev]"
+        run: pip install --require-hashes -r requirements-dev.lock && pip install --no-deps -e .
 
       - name: Run backend test suite
         working-directory: backend

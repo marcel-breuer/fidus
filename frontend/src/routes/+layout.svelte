@@ -24,14 +24,14 @@
 
 {#if data.user}
 	<div class="shell">
-		<aside>
+		<aside class="glass-chrome">
 			<p class="brand">{t('app.name')}</p>
 			<Sidebar modules={data.modules} current={page.url.pathname} />
 			<div class="foot">
 				<p class="who">{t('nav.signedInAs', { email: data.user.email })}</p>
 				<label class="lang">
 					<span>{t('nav.language')}</span>
-					<select value={data.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
+					<select class="glass-control" value={data.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
 						{#each LOCALES as locale}
 							<option value={locale}>{t(`language.${locale}`)}</option>
 						{/each}
@@ -50,6 +50,8 @@
 	.shell {
 		display: grid;
 		grid-template-columns: 15rem 1fr;
+		gap: 0.75rem;
+		padding: 0.75rem;
 		min-height: 100vh;
 	}
 	aside {
@@ -57,8 +59,6 @@
 		flex-direction: column;
 		gap: 1.25rem;
 		padding: 1.25rem 0.9rem;
-		border-right: 1px solid var(--line);
-		background: var(--surface);
 	}
 	.brand {
 		margin: 0 0.7rem;
@@ -84,10 +84,7 @@
 	select {
 		font: inherit;
 		padding: 0.35rem;
-		background: var(--bg);
 		color: var(--ink);
-		border: 1px solid var(--line);
-		border-radius: 6px;
 	}
 	main {
 		padding: 1.5rem;
@@ -95,10 +92,6 @@
 	@media (max-width: 720px) {
 		.shell {
 			grid-template-columns: 1fr;
-		}
-		aside {
-			border-right: 0;
-			border-bottom: 1px solid var(--line);
 		}
 		.foot {
 			margin-top: 0;

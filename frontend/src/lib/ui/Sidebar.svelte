@@ -42,9 +42,12 @@
 		align-items: center;
 		gap: 0.65rem;
 		padding: 0.55rem 0.7rem;
-		border-radius: 6px;
+		border-radius: 0.625rem;
 		color: inherit;
 		text-decoration: none;
+		transition:
+			color 180ms ease-out,
+			background-color 180ms ease-out;
 	}
 	a:hover {
 		background: var(--hover);

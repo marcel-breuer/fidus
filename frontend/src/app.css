@@ -1,45 +1,191 @@
+/*
+ * Glass: translucent surfaces with strong blur, a bright specular edge and a soft wide shadow.
+ * The fixed colour field on the body is what the glass blurs. Solid surfaces are the baseline;
+ * transparency is a progressive enhancement. Primary colour: #A4DDF5.
+ */
 :root {
-	--bg: #f4f1ea;
-	--surface: #fbfaf6;
-	--ink: #1d2421;
-	--muted: #5d665f;
-	--line: #d9d4c8;
-	--hover: #e8e4d9;
-	--accent: #1f4d3f;
-	--accent-ink: #f4f1ea;
+	--brand: #a4ddf5;
+	--brand-light: #cdeefa;
+	--brand-deep: #6cc5ea;
+
+	--glass-solid: #ffffff;
+	--glass-tint: #eaf6fc;
+	--glass-border: #bfe0ef;
+	--glass-edge: rgb(255 255 255 / 0.9);
+	--glass-rim: rgb(255 255 255 / 0.5);
+	--glass-shadow: 0 8px 32px rgb(20 88 120 / 0.1);
+	--glass-fill: var(--glass-solid);
+	--glass-inset-fill: var(--glass-tint);
+	--glass-blur: none;
+
+	--ink: #0f2530;
+	--muted: #3d5a69;
+	--accent: var(--brand);
+	--accent-ink: #0b2a38;
+	--accent-text: #0a5a7d;
 	--danger: #a4342a;
-	--danger-bg: #f6e4e0;
+	--danger-bg: #fbe9e6;
+	--focus: #0a5a7d;
+	--hover: var(--glass-tint);
+	--line: var(--glass-border);
+
+	--blob-1: color-mix(in srgb, var(--brand) 60%, transparent);
+	--blob-2: color-mix(in srgb, var(--brand-deep) 40%, transparent);
+	--blob-3: color-mix(in srgb, var(--brand) 45%, transparent);
 	color-scheme: light dark;
 }
+
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #151a18;
-		--surface: #1c2220;
-		--ink: #e9e6dd;
-		--muted: #9aa49c;
-		--line: #333b37;
-		--hover: #252c29;
-		--accent: #8fc4ad;
-		--accent-ink: #12201b;
-		--danger: #e58c82;
+		--glass-solid: #0d1c24;
+		--glass-tint: #08141a;
+		--glass-border: #2a4654;
+		--glass-edge: rgb(255 255 255 / 0.22);
+		--glass-rim: rgb(255 255 255 / 0.08);
+		--glass-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
+
+		--ink: #e6f3f9;
+		--muted: #a6c0cc;
+		--accent-text: #a4ddf5;
+		--danger: #f2a79e;
 		--danger-bg: #3a2220;
+		--focus: #a4ddf5;
+		--hover: rgb(255 255 255 / 0.08);
+
+		--blob-1: color-mix(in srgb, #0f3a4d 42%, transparent);
+		--blob-2: color-mix(in srgb, #0c2d3c 46%, transparent);
+		--blob-3: color-mix(in srgb, #15566f 26%, transparent);
 	}
 }
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+	:root {
+		--glass-fill: color-mix(in srgb, var(--glass-solid) 52%, transparent);
+		--glass-inset-fill: color-mix(in srgb, var(--glass-solid) 38%, transparent);
+		--glass-blur: blur(28px) saturate(180%);
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--glass-fill: rgb(255 255 255 / 0.07);
+			--glass-inset-fill: rgb(255 255 255 / 0.05);
+		}
+	}
+}
+
 * {
 	box-sizing: border-box;
 }
+
 body {
 	margin: 0;
-	background: var(--bg);
+	min-height: 100vh;
 	color: var(--ink);
 	font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 	line-height: 1.5;
+	background-color: var(--glass-solid);
+	background-image:
+		radial-gradient(60rem 40rem at 12% 8%, var(--blob-1), transparent 70%),
+		radial-gradient(52rem 38rem at 92% 28%, var(--blob-2), transparent 70%),
+		radial-gradient(56rem 40rem at 30% 92%, var(--blob-3), transparent 70%);
+	background-attachment: fixed;
 }
+
 h1 {
 	font-size: 1.4rem;
 	margin: 0 0 1rem;
 }
+
+a {
+	color: var(--accent-text);
+}
+
 :focus-visible {
-	outline: 2px solid var(--accent);
+	outline: 2px solid var(--focus);
 	outline-offset: 2px;
+}
+
+/* Levels: chrome (navigation), panel, inset. Never nest glass three deep. */
+.glass-panel,
+.glass-chrome,
+.glass-inset,
+.glass-control {
+	border: 1px solid var(--glass-rim);
+	background-color: var(--glass-fill);
+	box-shadow:
+		inset 0 1px 0 var(--glass-edge),
+		inset 0 0 0 1px var(--glass-rim),
+		var(--glass-shadow);
+}
+
+.glass-panel,
+.glass-chrome {
+	border-radius: 1.25rem;
+	-webkit-backdrop-filter: var(--glass-blur);
+	backdrop-filter: var(--glass-blur);
+}
+
+.glass-inset {
+	border-radius: 1rem;
+	background-color: var(--glass-inset-fill);
+	box-shadow: inset 0 1px 0 var(--glass-edge);
+	-webkit-backdrop-filter: var(--glass-blur);
+	backdrop-filter: var(--glass-blur);
+}
+
+.glass-control {
+	border-radius: 0.625rem;
+	background-color: var(--glass-inset-fill);
+	box-shadow: inset 0 1px 0 var(--glass-edge);
+	color: inherit;
+	transition:
+		color 180ms ease-out,
+		background-color 180ms ease-out,
+		border-color 180ms ease-out,
+		opacity 180ms ease-out;
+}
+
+.glass-control:is(input, select) {
+	border-color: var(--glass-border);
+}
+
+.glass-control:hover:not(:disabled) {
+	background-color: var(--hover);
+	border-color: var(--glass-border);
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active), print {
+	:root {
+		--glass-fill: var(--glass-solid);
+		--glass-inset-fill: var(--glass-tint);
+		--glass-blur: none;
+	}
+	body {
+		background-image: none;
+		background-attachment: scroll;
+	}
+	.glass-panel,
+	.glass-chrome,
+	.glass-inset,
+	.glass-control {
+		box-shadow: none;
+		border-color: var(--glass-border);
+	}
+}
+
+@media (forced-colors: active) {
+	.glass-panel,
+	.glass-chrome,
+	.glass-inset,
+	.glass-control {
+		background-color: Canvas;
+		border-color: CanvasText;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0s !important;
+	}
 }
