@@ -10,7 +10,7 @@ Status: the scaffold is implemented (Compose stack, auth, module registry, row-l
 - Row-level security: `users` and `sessions` are intentionally not row-level-secured, because authentication has to look them up before any user context exists. The application role may only select, insert and update `users`, and only select, insert and delete `sessions`. `tasks` and `invitations` are user-owned tables with forced policies. `module_settings` is instance-wide, has no `user_id` and intentionally no RLS policy; the application role may select, insert and update it. `app.user_id` is set with `set_config(..., true)`, the parameterizable form of `SET LOCAL`. The `migrate` service creates or refreshes the application role (`APP_DB_USER`, `APP_DB_PASSWORD`) before running Alembic.
 - Worker: taskiq with a Redis list broker, same image as the backend. The example job `tasks.count_open` runs inside the owning user's context. A Taskiq lifecycle hook refreshes a short-lived Redis heartbeat; the worker healthcheck requires a fresh heartbeat and verifies that Redis and the database answer.
 - Modules: `GET /api/v1/modules` returns enabled registry entries for the session user; the sidebar renders them. Admins manage instance-wide enablement and invitations in `/admin`. Disabled modules are hidden from this endpoint and route dependencies can block their APIs; worker jobs can use `ensure_module_enabled`, but no job calls it yet. Chat, files and tasks are placeholders without screens or services. Disabling a module leaves its data untouched.
-- Frontend: SvelteKit with adapter-node, server-side load of the user and modules, German and English catalogs with a typed key set.
+- Frontend: SvelteKit with adapter-node, server-side load of the user and modules, a generated OpenAPI type schema used by a shared `openapi-fetch` client, German and English catalogs with a typed key set.
 
 
 ## 1. Goals and constraints
@@ -136,7 +136,7 @@ Chunk size, overlap and top-k are configuration values with documented defaults 
 - Reminder state is per user and survives reloads; dismissing is explicit.
 
 ## 11. REST API
-- Prefix `/api/v1`, OpenAPI generated from the code, TypeScript client generated from the schema for the frontend and for later apps.
+- Prefix `/api/v1`, OpenAPI generated from the code, TypeScript types generated from the schema and consumed by a shared `openapi-fetch` client for browser and server requests.
 - Cursor pagination, consistent error shape, idempotency keys for create operations, request ids in responses and logs.
 - Change feed for later offline clients: list endpoints support `updated_since` and tombstones (`deleted_at`). Sync itself is out of scope for the MVP.
 
