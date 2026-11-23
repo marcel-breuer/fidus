@@ -7,6 +7,7 @@
 	const t = getT();
 	const errorKeys = {
 		credentials: 'auth.login.error.credentials',
+		rateLimited: 'auth.login.error.rateLimited',
 		unknown: 'common.error',
 		exists: 'common.error',
 		closed: 'common.error',

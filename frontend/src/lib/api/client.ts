@@ -1,4 +1,4 @@
-export type AuthError = 'credentials' | 'exists' | 'closed' | 'invalid' | 'unknown';
+export type AuthError = 'credentials' | 'exists' | 'closed' | 'invalid' | 'rateLimited' | 'unknown';
 
 async function detail(response: Response): Promise<unknown> {
 	try {
@@ -14,6 +14,7 @@ export async function login(email: string, password: string): Promise<AuthError 
 		body: new URLSearchParams({ username: email, password })
 	});
 	if (response.ok) return null;
+	if (response.status === 429) return 'rateLimited';
 	return response.status === 400 ? 'credentials' : 'unknown';
 }
 
@@ -24,6 +25,7 @@ export async function register(email: string, password: string): Promise<AuthErr
 		body: JSON.stringify({ email, password })
 	});
 	if (response.ok) return null;
+	if (response.status === 429) return 'rateLimited';
 	const reason = await detail(response);
 	if (reason === 'REGISTER_USER_ALREADY_EXISTS') return 'exists';
 	if (reason === 'REGISTRATION_CLOSED') return 'closed';

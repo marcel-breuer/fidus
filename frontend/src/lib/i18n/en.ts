@@ -22,13 +22,15 @@ export const en = {
 	'auth.login.submitting': 'Signing in…',
 	'auth.login.toRegister': 'Create an account',
 	'auth.login.error.credentials': 'Email address or password is wrong.',
+	'auth.login.error.rateLimited': 'Too many attempts. Please wait before trying again.',
 	'auth.register.title': 'Create account',
 	'auth.register.submit': 'Create account',
 	'auth.register.submitting': 'Creating account…',
 	'auth.register.toLogin': 'I already have an account',
 	'auth.register.error.exists': 'An account with this email address already exists.',
 	'auth.register.error.closed': 'Registration is closed on this instance.',
-	'auth.register.error.invalid': 'Check the email address and password.'
+	'auth.register.error.invalid': 'Check the email address and password.',
+	'auth.register.error.rateLimited': 'Too many attempts. Please wait before trying again.'
 } as const;
 
 export type MessageKey = keyof typeof en;

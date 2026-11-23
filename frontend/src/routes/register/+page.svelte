@@ -9,6 +9,7 @@
 		exists: 'auth.register.error.exists',
 		closed: 'auth.register.error.closed',
 		invalid: 'auth.register.error.invalid',
+		rateLimited: 'auth.register.error.rateLimited',
 		credentials: 'common.error',
 		unknown: 'common.error'
 	} as const;
