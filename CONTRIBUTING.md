@@ -25,8 +25,10 @@ Run the pipeline steps locally before opening a PR:
 ```sh
 docker compose --env-file .env.example config --quiet
 docker compose exec backend pytest
-docker compose run --rm frontend npm test
-docker compose run --rm frontend npm run check
+docker compose run --rm frontend-dev npm test
+docker compose run --rm frontend-dev npm run check
+docker compose run --rm frontend-dev npm run build
+./scripts/api-client.sh check
 ```
 
 ## License

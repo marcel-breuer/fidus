@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi_users.db import SQLAlchemyBaseUserTable
 from pgvector.sqlalchemy import Vector
@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Computed,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -357,6 +358,23 @@ class InstanceSetting(Base):
     updated_by: Mapped[str | None] = mapped_column(
         String(26), ForeignKey("users.id", ondelete="SET NULL")
     )
+
+
+class UsageRecord(TimestampMixin, Base):
+    """Counter for one user, one UTC day and one metric. Display only; nothing enforces it."""
+
+    __tablename__ = "usage_records"
+    __table_args__ = (
+        UniqueConstraint("user_id", "day", "metric", name="uq_usage_records_user_day_metric"),
+    )
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    metric: Mapped[str] = mapped_column(String(40), nullable=False)
+    quantity: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
 
 
 class Session(Base):

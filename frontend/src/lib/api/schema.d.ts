@@ -836,6 +836,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Usage */
+        get: operations["get_usage_api_v1_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -1483,6 +1500,57 @@ export interface components {
             scopes: ("audio:read" | "audio:write" | "chat:use" | "files:read" | "files:write" | "tasks:read" | "tasks:write")[];
             /** Token Prefix */
             token_prefix: string;
+        };
+        /** UsageAmounts */
+        UsageAmounts: {
+            /** Chat Requests */
+            chat_requests: number;
+            /** Embedding Chunks */
+            embedding_chunks: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Mcp Calls */
+            mcp_calls: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Transcription Minutes */
+            transcription_minutes: number;
+        };
+        /** UsageDayOut */
+        UsageDayOut: {
+            /** Chat Requests */
+            chat_requests: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Embedding Chunks */
+            embedding_chunks: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Mcp Calls */
+            mcp_calls: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Transcription Minutes */
+            transcription_minutes: number;
+        };
+        /** UsageOut */
+        UsageOut: {
+            /** Daily */
+            daily: components["schemas"]["UsageDayOut"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            totals: components["schemas"]["UsageAmounts"];
         };
         /** UserCreate */
         UserCreate: {
@@ -3474,6 +3542,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_usage_api_v1_usage_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
+                };
             };
             /** @description Validation Error */
             422: {

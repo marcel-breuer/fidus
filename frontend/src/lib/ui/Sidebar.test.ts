@@ -47,6 +47,12 @@ describe('Sidebar', () => {
 		expect(html('en', modules, '/settings/tokens')).toMatch(/href="\/settings\/tokens"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/settings\/tokens"/);
 	});
 
+	it('links to the usage page in both languages', () => {
+		expect(html('en', modules)).toContain('href="/settings/usage"');
+		expect(html('de', [])).toContain('Nutzung');
+		expect(html('en', modules, '/settings/usage')).toMatch(/href="\/settings\/usage"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/settings\/usage"/);
+	});
+
 	it('shows the admin entry only when the user is an admin', () => {
 		expect(render(Harness, { props: { locale: 'en', modules, current: '', admin: false } }).body).not.toContain('href="/admin"');
 		const admin = render(Harness, { props: { locale: 'en', modules, current: '', admin: true } }).body;

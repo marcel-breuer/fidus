@@ -37,6 +37,7 @@ services:
       - "${APP_PORT:-8080}:8080"
     volumes:
       - ./gateway/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./gateway/security-headers.conf:/etc/nginx/security-headers.conf:ro
       - ./gateway/10-trusted-proxies.sh:/docker-entrypoint.d/10-trusted-proxies.sh:ro
     tmpfs:
       - /tmp

@@ -18,14 +18,14 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | License | MIT |
 | Deployment | Docker Compose only (gateway, frontend, backend, worker, scheduler, db, redis); local via `./start.sh` or on an own server or web hosting behind TLS |
 | Registration | Open by default after the first admin; invite-only uses admin-created, single-use invitations managed in the admin screen and API; closed rejects further registrations |
-| Usage | Tokens, audio minutes and storage are recorded and displayed per user; no quota enforcement in the MVP |
+| Usage | Chat requests, tokens, transcription minutes, embedded chunks and MCP calls are recorded per user and day and displayed to the user (settings, usage); storage is not counted; no quota enforcement in the MVP |
 | Clients | Web UI first; native apps (macOS, iOS, iPadOS, Windows) later as API clients |
 | Integrations | Versioned REST API (`/api/v1`) and an MCP server (`/mcp`) over the same service layer |
 | Architecture | See [architecture/overview.md](architecture/overview.md) |
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`) are implemented. Chat attachments and OAuth remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`) are implemented. Usage counters, structured JSON logs, backup and restore scripts, the operations runbook and the security review (`Refs #23`) are implemented. Chat attachments and OAuth remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -80,4 +80,4 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 
 ## Open points
 - Exact model IDs: verify against current OpenAI documentation when implementing
-- Usage limits per user for a hosted service (token and audio-minute budgets)
+- Usage limits per user for a hosted service (token and audio-minute budgets), per-user rate limits for chat and uploads (issue #67), an admin usage overview and storage counters

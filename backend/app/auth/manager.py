@@ -4,7 +4,7 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.db import SQLAlchemyUserDatabase
-from fastapi_users.exceptions import UserAlreadyExists
+from fastapi_users.exceptions import InvalidPasswordException, UserAlreadyExists
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,8 @@ from app.services.instance_settings import get_registration_mode
 from app.services.invitations import consume_invitation, validate_invitation
 
 COOKIE_NAME = "fidus_session"
+MIN_PASSWORD_LENGTH = 12
+MAX_PASSWORD_LENGTH = 256
 # Serializes registrations so exactly one "first user" exists.
 _REGISTRATION_LOCK = 727_001
 
@@ -36,6 +38,12 @@ class UserManager(BaseUserManager[User, str]):
 
     def parse_id(self, value: object) -> str:
         return str(value)
+
+    async def validate_password(self, password: str, user: UserCreate | User) -> None:
+        # fastapi-users accepts any password by default. Length is what matters against guessing;
+        # the upper bound keeps the hashing cost of a single request bounded.
+        if not MIN_PASSWORD_LENGTH <= len(password) <= MAX_PASSWORD_LENGTH:
+            raise InvalidPasswordException(reason="PASSWORD_LENGTH")
 
     async def create(
         self, user_create: UserCreate, safe: bool = False, request: Request | None = None

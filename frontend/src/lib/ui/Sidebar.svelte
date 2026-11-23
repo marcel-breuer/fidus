@@ -30,6 +30,9 @@
 	<a class="extra-link" href="/settings/tokens" aria-current={current === '/settings/tokens' ? 'page' : undefined}>
 		<span>{t('nav.tokens')}</span>
 	</a>
+	<a class="extra-link" href="/settings/usage" aria-current={current === '/settings/usage' ? 'page' : undefined}>
+		<span>{t('nav.usage')}</span>
+	</a>
 	{#if admin}
 		<a class="extra-link" href="/admin" aria-current={current === '/admin' ? 'page' : undefined}>
 			<span>{t('nav.admin')}</span>

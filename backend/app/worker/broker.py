@@ -1,10 +1,12 @@
 import asyncio
+import uuid
 
 from redis.asyncio import Redis
-from taskiq import AsyncBroker, InMemoryBroker, TaskiqEvents, TaskiqState
+from taskiq import AsyncBroker, InMemoryBroker, TaskiqEvents, TaskiqMessage, TaskiqMiddleware, TaskiqState
 from taskiq_redis import ListQueueBroker
 
 from app.config import get_settings
+from app.logging_config import configure_logging, request_id_var, valid_request_id
 from app.worker.liveness import HEARTBEAT_KEY, heartbeat_loop, refresh_heartbeat
 
 
@@ -15,11 +17,22 @@ def build_broker(url: str | None = None, in_memory: bool = False) -> AsyncBroker
     return ListQueueBroker(url or get_settings().redis_url, socket_timeout=None)
 
 
-broker = build_broker()
+class TaskContextMiddleware(TaskiqMiddleware):
+    """Give every job a correlation id (the task id) so its log lines can be grouped."""
+
+    async def pre_execute(self, message: TaskiqMessage) -> TaskiqMessage:
+        request_id_var.set(message.task_id if valid_request_id(message.task_id) else uuid.uuid4().hex)
+        return message
+
+
+configure_logging("worker")
+broker = build_broker().with_middlewares(TaskContextMiddleware())
 
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
 async def start_heartbeat(state: TaskiqState) -> None:
+    # Taskiq installs its own handler after import in some start modes; take the stream back.
+    configure_logging("worker")
     redis = Redis.from_url(get_settings().redis_url)
     await refresh_heartbeat(redis)
     state.heartbeat_redis = redis

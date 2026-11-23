@@ -20,7 +20,15 @@ from app.ai.providers import (
 )
 from app.db.models import Message, User
 from app.db.session import user_session
-from app.services import agent_actions, agent_settings, agent_tools, conversations, memories, module_settings
+from app.services import (
+    agent_actions,
+    agent_settings,
+    agent_tools,
+    conversations,
+    memories,
+    module_settings,
+    usage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +210,7 @@ async def run_chat_turn(
                 break
     except Exception:
         logger.warning("Chat turn failed", exc_info=True)
+        await usage.record(user.id, chat_requests=1, input_tokens=input_tokens, output_tokens=output_tokens)
         yield Error()
         return
 
@@ -210,6 +219,9 @@ async def run_chat_turn(
     title = ""
     proposed: list[ActionProposed] = []
     async with user_session(user.id) as session:
+        await usage.add(session, user.id, {
+            usage.CHAT_REQUESTS: 1, usage.INPUT_TOKENS: input_tokens, usage.OUTPUT_TOKENS: output_tokens,
+        })
         conversation = await conversations.get_conversation(session, user, conversation_id)
         if conversation is None:
             missing = True
