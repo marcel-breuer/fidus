@@ -28,7 +28,7 @@
 
 <svelte:head><title>{t('auth.register.title')} · {t('app.name')}</title></svelte:head>
 <main class="auth">
-	<form onsubmit={submit}>
+	<form class="glass-panel" onsubmit={submit}>
 		<h1>{t('auth.register.title')}</h1>
 		{#if error}
 			<Alert>{t(errorKeys[error])}</Alert>
@@ -51,8 +51,6 @@
 		width: min(24rem, 100%);
 		display: grid;
 		gap: 1rem;
-	}
-	a {
-		color: var(--accent);
+		padding: 1.75rem;
 	}
 </style>
