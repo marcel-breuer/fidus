@@ -24,11 +24,13 @@ export const de: Record<MessageKey, string> = {
 	'auth.login.submitting': 'Anmeldung läuft…',
 	'auth.login.toRegister': 'Konto erstellen',
 	'auth.login.error.credentials': 'E-Mail-Adresse oder Passwort ist falsch.',
+	'auth.login.error.rateLimited': 'Zu viele Versuche. Bitte warte, bevor du es erneut versuchst.',
 	'auth.register.title': 'Konto erstellen',
 	'auth.register.submit': 'Konto erstellen',
 	'auth.register.submitting': 'Konto wird erstellt…',
 	'auth.register.toLogin': 'Ich habe schon ein Konto',
 	'auth.register.error.exists': 'Mit dieser E-Mail-Adresse existiert bereits ein Konto.',
 	'auth.register.error.closed': 'Die Registrierung ist auf dieser Instanz geschlossen.',
-	'auth.register.error.invalid': 'Prüfe E-Mail-Adresse und Passwort.'
+	'auth.register.error.invalid': 'Prüfe E-Mail-Adresse und Passwort.',
+	'auth.register.error.rateLimited': 'Zu viele Versuche. Bitte warte, bevor du es erneut versuchst.'
 };
