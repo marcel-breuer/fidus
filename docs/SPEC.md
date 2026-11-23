@@ -16,7 +16,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Models | OpenAI only, one `OPENAI_API_KEY`; chat, transcription, embeddings, TTS and web search models are fixed in a config file, not chosen at runtime |
 | i18n | UI in German and English from the start; code, docs and repo in English |
 | License | MIT |
-| Deployment | Docker Compose only (gateway, frontend, backend, worker, db, redis); local via `./start.sh` or on an own server or web hosting behind TLS |
+| Deployment | Docker Compose only (gateway, frontend, backend, worker, scheduler, db, redis); local via `./start.sh` or on an own server or web hosting behind TLS |
 | Registration | Open by default after the first admin; invite-only uses admin-created, single-use invitations managed in the admin screen and API; closed rejects further registrations |
 | Usage | Tokens, audio minutes and storage are recorded and displayed per user; no quota enforcement in the MVP |
 | Clients | Web UI first; native apps (macOS, iOS, iPadOS, Windows) later as API clients |
@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes, module registry and sidebar, row-level security with an example `tasks` table, worker with an example job, German and English UI shell. Everything under "MVP scope" below is still to build; see [architecture/overview.md](architecture/overview.md) section 0 for the details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security with an example `tasks` table, worker with an example job, German and English UI shell. Everything under "MVP scope" below is still to build; see [architecture/overview.md](architecture/overview.md) section 0 for the details and known gaps.
 
 ## MVP scope
 

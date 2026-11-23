@@ -2,7 +2,7 @@
 
 Open-source, self-hostable personal assistant: a chat interface with a growing set of modules (chat, files, tasks, later calendar). Multi-user, FastAPI + SvelteKit + PostgreSQL/pgvector, powered by a single OpenAI API key.
 
-Status: early development. The scaffold runs: sign-up and sign-in, an app shell with the module sidebar (Chat, Files and Tasks are placeholders), row-level security and a background worker. Chat and the other features are not implemented yet. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
+Status: early development. The scaffold runs: sign-up and sign-in, an app shell with the module sidebar (Chat, Files and Tasks are placeholders), row-level security, a background worker and a Taskiq scheduler for expired-session cleanup. Chat and the other features are not implemented yet. See [docs/SPEC.md](docs/SPEC.md) for scope and decisions.
 
 ## Quick start
 ```sh
@@ -11,6 +11,9 @@ cd fidus
 ./start.sh
 ```
 `start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack, then prints the address (default `http://localhost:8080`). The first account you register becomes the admin. `REGISTRATION_MODE` (`open`, `invite-only`, `closed`) controls registration afterwards. Set `OPENAI_API_KEY` in `.env` before the assistant features arrive.
+
+### Behind a reverse proxy
+Set `TRUSTED_PROXIES` in `.env` to the comma-separated IPs or CIDRs of the proxy hops that connect to the gateway. Leave it empty when the gateway is directly exposed. The gateway resolves forwarded client addresses only through those trusted proxies.
 
 ## Development
 ```sh

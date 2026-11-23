@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { logout } from '$lib/api/client';
+	import { logout, logoutAll } from '$lib/api/client';
 	import { LOCALES, LOCALE_COOKIE, type Locale } from '$lib/i18n';
 	import { getT, provideT } from '$lib/i18n/context';
 	import { Button, Sidebar } from '$lib/ui';
@@ -13,6 +13,11 @@
 
 	async function signOut() {
 		await logout();
+		await goto('/login', { invalidateAll: true });
+	}
+
+	async function signOutEverywhere() {
+		await logoutAll();
 		await goto('/login', { invalidateAll: true });
 	}
 
@@ -37,7 +42,10 @@
 						{/each}
 					</select>
 				</label>
-				<Button variant="quiet" onclick={signOut}>{t('nav.logout')}</Button>
+				<div class="actions">
+					<Button variant="quiet" onclick={signOut}>{t('nav.logout')}</Button>
+					<Button variant="quiet" onclick={signOutEverywhere}>{t('nav.logoutAll')}</Button>
+				</div>
 			</div>
 		</aside>
 		<main>{@render children()}</main>
@@ -69,6 +77,11 @@
 		margin-top: auto;
 		display: grid;
 		gap: 0.6rem;
+	}
+	.actions {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.45rem;
 	}
 	.who {
 		margin: 0;

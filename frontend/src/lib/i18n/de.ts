@@ -9,6 +9,7 @@ export const de: Record<MessageKey, string> = {
 	'nav.admin': 'Administration',
 	'nav.empty': 'Keine Module verfügbar.',
 	'nav.logout': 'Abmelden',
+	'nav.logoutAll': 'Überall abmelden',
 	'nav.language': 'Sprache',
 	'nav.signedInAs': 'Angemeldet als {email}',
 	'language.en': 'English',
