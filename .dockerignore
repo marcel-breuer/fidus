@@ -1,0 +1,14 @@
+.git
+.github
+.agent
+/backups
+.env
+.env.*
+!.env.example
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/node_modules
+**/.svelte-kit
+**/build
+.DS_Store
