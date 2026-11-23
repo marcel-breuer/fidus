@@ -34,8 +34,18 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ["REGISTRATION_MODE"] = "open"
 os.environ["APP_URL"] = "http://localhost:8080"
 
-from app.ai.deps import get_chat_provider, get_embedding_provider, get_web_search_provider  # noqa: E402
-from app.ai.fakes import FakeChatProvider, FakeWebSearchProvider, KeywordEmbeddingProvider  # noqa: E402
+from app.ai.deps import (  # noqa: E402
+    get_chat_provider,
+    get_embedding_provider,
+    get_speech_provider,
+    get_web_search_provider,
+)
+from app.ai.fakes import (  # noqa: E402
+    FakeChatProvider,
+    FakeSpeechProvider,
+    FakeWebSearchProvider,
+    KeywordEmbeddingProvider,
+)
 from app.ai.providers import Completed, TextDelta, Usage  # noqa: E402
 from app.auth.rate_limit import get_redis  # noqa: E402
 from app.config import get_settings  # noqa: E402
@@ -129,6 +139,11 @@ def fake_clock() -> FakeClock:
 
 
 @pytest.fixture
+def speech_provider() -> FakeSpeechProvider:
+    return FakeSpeechProvider()
+
+
+@pytest.fixture
 def memory_storage() -> MemoryStorage:
     return MemoryStorage()
 
@@ -154,6 +169,7 @@ async def client(
     chat_provider: FakeChatProvider,
     web_search: FakeWebSearchProvider,
     memory_storage: MemoryStorage,
+    speech_provider: FakeSpeechProvider,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app()
@@ -162,10 +178,15 @@ async def client(
     app.dependency_overrides[get_embedding_provider] = lambda: KeywordEmbeddingProvider()
     app.dependency_overrides[get_web_search_provider] = lambda: web_search
     app.dependency_overrides[get_storage] = lambda: memory_storage
+    app.dependency_overrides[get_speech_provider] = lambda: speech_provider
     async def skip_index_queue(user_id: str, document_id: str) -> None:
         return None
 
+    async def skip_memo_queue(user_id: str, memo_id: str) -> None:
+        return None
+
     monkeypatch.setattr("app.services.indexing.enqueue_index_document", skip_index_queue)
+    monkeypatch.setattr("app.services.audio.enqueue_memo", skip_memo_queue)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

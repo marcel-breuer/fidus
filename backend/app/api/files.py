@@ -18,6 +18,7 @@ from app.modules.guard import require_module
 from app.services import files as service
 from app.services.files import FilesError
 from app.services.indexing import latest_document, retry_latest_document
+from app.services.module_settings import enabled_module_keys
 from app.services.retrieval import search_knowledge
 from app.storage.base import Storage, StorageTooLarge
 from app.storage.deps import get_storage
@@ -62,13 +63,15 @@ class DocumentStatusOut(BaseModel):
 class CitationOut(BaseModel):
     chunk_id: str
     document_id: str
-    node_id: str
+    node_id: str | None
     folder_id: str | None
     file_name: str
-    version: int
+    version: int | None
     position: int
     snippet: str
     score: float
+    source: str = "upload"
+    memo_id: str | None = None
 
 
 class SearchOut(BaseModel):
@@ -243,7 +246,10 @@ async def get_knowledge_search(
 ) -> SearchOut:
     if not q.strip():
         raise HTTPException(status_code=422, detail="QUERY_REQUIRED")
-    hits = await search_knowledge(session, user, q, embedder, limit or get_model_config().retrieval.top_k)
+    include_memos = "audio" in await enabled_module_keys(session)
+    hits = await search_knowledge(
+        session, user, q, embedder, limit or get_model_config().retrieval.top_k, include_memos=include_memos
+    )
     return SearchOut(results=[CitationOut.model_validate(hit, from_attributes=True) for hit in hits])
 
 

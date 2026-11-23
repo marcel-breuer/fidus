@@ -10,6 +10,7 @@ class ModelConfig:
     embedding: str
     embedding_dimensions: int
     transcription: str
+    speech: str
     web_search: bool
     retrieval: "RetrievalConfig"
 

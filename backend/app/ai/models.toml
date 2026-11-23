@@ -2,6 +2,7 @@ chat = "gpt-6-luna"
 embedding = "text-embedding-3-small"
 embedding_dimensions = 1536
 transcription = "gpt-transcribe"
+speech = "gpt-realtime-2.1-mini"
 web_search = true
 
 [retrieval]

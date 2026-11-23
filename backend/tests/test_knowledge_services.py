@@ -33,7 +33,7 @@ async def test_hybrid_search_keeps_vector_only_keyword_only_and_combined_hits() 
 		return {
 			"chunk_id": chunk_id, "document_id": f"{chunk_id}-doc", "node_id": f"{chunk_id}-node",
 			"folder_id": None, "file_name": f"{chunk_id}.txt", "version": 1, "position": 0,
-			"content": f"content {chunk_id}", "snippet": None
+			"content": f"content {chunk_id}", "snippet": None, "source": "upload", "memo_id": None
 		}
 
 	class Result:

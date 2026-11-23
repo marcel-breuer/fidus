@@ -7,8 +7,8 @@ from sqlalchemy.dialects import postgresql
 from app.config import get_settings
 
 revision = "0011"
-# Chained after 0009 (memory, agent actions, audit log).
-down_revision = "0009"
+# Chained after 0010 (audio memos).
+down_revision = "0010"
 branch_labels = None
 depends_on = None
 

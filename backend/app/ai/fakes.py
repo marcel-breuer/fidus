@@ -1,6 +1,8 @@
 import hashlib
+import io
 import math
 import re
+import wave
 from collections.abc import AsyncIterator, Iterable
 
 from app.ai.config import get_model_config
@@ -79,3 +81,33 @@ class KeywordEmbeddingProvider:
             norm = math.sqrt(sum(item * item for item in vector)) or 1.0
             vectors.append([item / norm for item in vector])
         return vectors
+
+
+class FakeTranscriptionProvider:
+    """Returns the queued transcripts in order; records each call's audio and filename."""
+
+    def __init__(self, transcripts: Iterable[str | Exception] = ("fake transcript",)) -> None:
+        self.transcripts = list(transcripts)
+        self.calls: list[tuple[str, bytes, str | None]] = []
+
+    async def transcribe(self, audio: bytes, filename: str, language: str | None = None) -> str:
+        self.calls.append((filename, audio, language))
+        item = self.transcripts[min(len(self.calls), len(self.transcripts)) - 1]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class FakeSpeechProvider:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    async def synthesize(self, text: str) -> bytes:
+        self.texts.append(text)
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(24000)
+            wav.writeframes(b"\x00\x00" * len(text))
+        return buffer.getvalue()

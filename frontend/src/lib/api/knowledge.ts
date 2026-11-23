@@ -3,13 +3,15 @@ import { createApiClient } from './http';
 export type Citation = {
 	chunk_id: string;
 	document_id: string;
-	node_id: string;
+	node_id: string | null;
 	folder_id: string | null;
 	file_name: string;
-	version: number;
+	version: number | null;
 	position: number;
 	snippet: string;
 	score: number;
+	source: 'upload' | 'memo';
+	memo_id: string | null;
 };
 
 export type DocumentStatus = { status: 'pending' | 'ready' | 'failed'; chunk_count: number; error_code: string | null };
@@ -39,15 +41,16 @@ export function debounce<Args extends unknown[]>(
 	return debounced;
 }
 
-export type CitationGroup = { nodeId: string; fileName: string; folderId: string | null; citations: Citation[] };
+export type CitationGroup = { nodeId: string; memoId: string | null; fileName: string; folderId: string | null; citations: Citation[] };
 
 export function groupCitations(citations: Citation[]): CitationGroup[] {
 	const groups = new Map<string, CitationGroup>();
 	for (const citation of citations) {
-		let group = groups.get(citation.node_id);
+		const groupKey = citation.memo_id ?? citation.node_id ?? citation.document_id;
+		let group = groups.get(groupKey);
 		if (!group) {
-			group = { nodeId: citation.node_id, fileName: citation.file_name, folderId: citation.folder_id, citations: [] };
-			groups.set(citation.node_id, group);
+			group = { nodeId: groupKey, memoId: citation.memo_id, fileName: citation.file_name, folderId: citation.folder_id, citations: [] };
+			groups.set(groupKey, group);
 		}
 		group.citations.push(citation);
 	}
