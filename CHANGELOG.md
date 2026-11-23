@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/marcel-breuer/fidus/compare/v1.1.0...v1.2.0) (2026-11-23)
+
+
+### Features
+
+* **admin:** user management and runtime registration mode ([dec2b7d](https://github.com/marcel-breuer/fidus/commit/dec2b7dfa1adad26df07bd893693680c9808ed05))
+* **admin:** user management and runtime registration mode ([7dbcca8](https://github.com/marcel-breuer/fidus/commit/7dbcca8893682548212125beda7a862c78b03b18)), closes [#35](https://github.com/marcel-breuer/fidus/issues/35)
+* **api:** add personal access tokens and MCP server ([1a68b8a](https://github.com/marcel-breuer/fidus/commit/1a68b8a90c8ef2cee58cb9cebe6ba17c3ffa4d19)), closes [#22](https://github.com/marcel-breuer/fidus/issues/22)
+* **audio:** voice memos with transcription and read-aloud ([973753f](https://github.com/marcel-breuer/fidus/commit/973753f72534a26f8e314a44783793ad039ebb81))
+* **audio:** voice memos with worker transcription and read-aloud ([a91a5b3](https://github.com/marcel-breuer/fidus/commit/a91a5b35d3a31040a28283796d91012e88594faa))
+* **chat:** durable memories, web search, citations and confirmed agent tools ([bedded3](https://github.com/marcel-breuer/fidus/commit/bedded338b2bc9b926166cb764a23920a6dbf93f)), closes [#18](https://github.com/marcel-breuer/fidus/issues/18)
+* **chat:** let the agent create and update text files ([d094994](https://github.com/marcel-breuer/fidus/commit/d094994e17852b351de56e3ded67dbf30dda222a))
+* **chat:** let the agent create and update text files ([fe6d0b0](https://github.com/marcel-breuer/fidus/commit/fe6d0b00e5239bb92f4a2b6d6371729275f157a0))
+* **chat:** memories, web search, citations and confirmed agent tools ([b678223](https://github.com/marcel-breuer/fidus/commit/b678223c152fa4233d26b39063eb2c5cc295f26c))
+* personal access tokens and MCP server ([182d452](https://github.com/marcel-breuer/fidus/commit/182d452617d4b743e2b13266bd5b641417808fcb))
+* usage counters, backup and restore, structured logs and security review ([69e3d8c](https://github.com/marcel-breuer/fidus/commit/69e3d8c10a93e710212e07ab7fdc6254a11ac97d))
+* usage counters, backup and restore, structured logs and security review ([e6e0870](https://github.com/marcel-breuer/fidus/commit/e6e0870c0a35fb319e6c270231a1ec2e71982113)), closes [#23](https://github.com/marcel-breuer/fidus/issues/23)
+* **web:** add access token settings page ([66141ad](https://github.com/marcel-breuer/fidus/commit/66141adca6a2027335ffc41a6866866f0e72c807)), closes [#22](https://github.com/marcel-breuer/fidus/issues/22)
+* **web:** offer audio scopes for access tokens ([c7217a8](https://github.com/marcel-breuer/fidus/commit/c7217a8c86dd81459cd1da8b5511f63762ee863d))
+
 ## [1.1.0](https://github.com/marcel-breuer/fidus/compare/v1.0.1...v1.1.0) (2026-11-23)
 
 
