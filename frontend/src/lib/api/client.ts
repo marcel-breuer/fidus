@@ -56,5 +56,5 @@ export async function logout(): Promise<void> {
 }
 
 export async function logoutAll(): Promise<void> {
-	await fetch('/api/v1/auth/logout-all', { method: 'POST', headers: csrfHeaders() });
+	await api.POST('/api/v1/auth/logout-all', { parseAs: 'text' });
 }
