@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi_users.db import SQLAlchemyBaseUserTable
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Computed,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
@@ -103,6 +105,55 @@ class Message(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Node(TimestampMixin, Base):
+    """User-owned folder or file in the Files tree."""
+
+    __tablename__ = "nodes"
+    __table_args__ = (
+        CheckConstraint("kind IN ('folder', 'file')", name="kind"),
+        Index(
+            "uq_nodes_user_parent_name_live",
+            "user_id",
+            text("coalesce(parent_id, '')"),
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    parent_id: Mapped[str | None] = mapped_column(
+        String(26), ForeignKey("nodes.id", ondelete="CASCADE")
+    )
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class FileVersion(Base):
+    __tablename__ = "file_versions"
+    __table_args__ = (UniqueConstraint("node_id", "version", name="uq_file_versions_node_version"),)
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    node_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("nodes.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class Invitation(TimestampMixin, Base):

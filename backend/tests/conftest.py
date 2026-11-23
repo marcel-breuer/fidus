@@ -42,6 +42,8 @@ from app.config import get_settings  # noqa: E402
 from app.db import migrate  # noqa: E402
 from app.db.session import dispose_engine  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.storage.deps import get_storage  # noqa: E402
+from app.storage.memory import MemoryStorage  # noqa: E402
 
 
 class FakeClock:
@@ -127,6 +129,11 @@ def fake_clock() -> FakeClock:
 
 
 @pytest.fixture
+def memory_storage() -> MemoryStorage:
+    return MemoryStorage()
+
+
+@pytest.fixture
 def rate_limit_store(fake_clock: FakeClock) -> InMemoryRateLimitStore:
     return InMemoryRateLimitStore(fake_clock)
 
@@ -140,10 +147,12 @@ def chat_provider() -> FakeChatProvider:
 async def client(
     rate_limit_store: InMemoryRateLimitStore,
     chat_provider: FakeChatProvider,
+    memory_storage: MemoryStorage,
 ) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app()
     app.dependency_overrides[get_redis] = lambda: rate_limit_store  # type: ignore[assignment]
     app.dependency_overrides[get_chat_provider] = lambda: chat_provider
+    app.dependency_overrides[get_storage] = lambda: memory_storage
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

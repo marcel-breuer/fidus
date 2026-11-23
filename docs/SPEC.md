@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, and chat Stages 1–2 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, and chat UI). Conversation memory and durable memories, web search, citations, attachments and agent tools remain unimplemented, as do files, audio, tokens and MCP; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps. Regenerate the checked-in frontend OpenAPI JSON and TypeScript schema after this streaming endpoint change.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–2 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, and chat UI), and Files Stage 1 (`Refs #19`: private storage, folders, streamed uploads, versioning, downloads and browser UI). Conversation memory and durable memories, web search, citations, attachments and agent tools remain unimplemented. Files text extraction, embeddings and search are not implemented yet. Streaming/chat completion, memory, web search, attachments, agent tools and chat UI remain unimplemented, as do audio, tokens and MCP; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -45,6 +45,8 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 ### Files module
 - Folder and file browser, files created by the user or by the agent
 - Content feeds the RAG index
+
+Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage, streamed uploads, versions and attachment downloads. Stage 2 will add text extraction, embeddings and search; none of those are implemented yet.
 
 ### Tasks module
 - Implemented: user-scoped tasks with notes, due date, reminder time, completion/reopen, soft deletion and open/done/all filtering.

@@ -11,7 +11,10 @@ RUN python -m venv /opt/venv \
 
 FROM python:3.13-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH=/opt/venv/bin:$PATH
-RUN groupadd --system --gid 10001 fidus && useradd --system --uid 10001 --gid fidus --no-create-home fidus
+RUN groupadd --system --gid 10001 fidus \
+    && useradd --system --uid 10001 --gid fidus --no-create-home fidus \
+    && mkdir -p /data/files \
+    && chown -R fidus:fidus /data/files
 COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=fidus:fidus alembic.ini ./
