@@ -62,10 +62,15 @@
 <style>
 	.shell {
 		display: grid;
-		grid-template-columns: 15rem 1fr;
+		grid-template-columns: 15rem minmax(0, 1fr);
 		gap: 0.75rem;
 		padding: 0.75rem;
 		min-height: 100vh;
+		min-width: 0;
+	}
+	aside,
+	main {
+		min-width: 0;
 	}
 	aside {
 		display: flex;
@@ -101,18 +106,26 @@
 	}
 	select {
 		font: inherit;
-		padding: 0.35rem;
+		padding: 0.5rem 0.65rem;
 		color: var(--ink);
+		background-color: var(--glass-inset-fill);
 	}
 	main {
 		padding: 1.5rem;
 	}
 	@media (max-width: 720px) {
 		.shell {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
+		}
+		aside {
+			gap: 0.75rem;
+			padding: 0.75rem;
 		}
 		.foot {
 			margin-top: 0;
+		}
+		main {
+			padding: 0.75rem;
 		}
 	}
 </style>

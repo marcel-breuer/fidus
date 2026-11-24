@@ -98,6 +98,7 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tool_calls: Mapped[dict | list | None] = mapped_column(JSONB)
     citations: Mapped[dict | list | None] = mapped_column(JSONB)
+    speech_key: Mapped[str | None] = mapped_column(String(255))
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     search: Mapped[str] = mapped_column(

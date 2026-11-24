@@ -140,7 +140,7 @@
 	.muted { color: var(--muted); margin: 0; font-size: 0.9rem; }
 	.mode { display: grid; gap: 0.5rem; border: 1px solid var(--glass-rim); border-radius: 0.8rem; padding: 0.9rem 1rem; }
 	.mode legend { font-weight: 650; padding: 0 0.3rem; }
-	.mode label { display: flex; gap: 0.5rem; align-items: center; }
+	.mode label { display: flex; gap: 0.5rem; align-items: center; min-height: 44px; }
 	.mode input { accent-color: var(--accent); }
 	.create { display: grid; gap: 0.6rem; justify-items: start; }
 	.field { display: grid; gap: 0.35rem; font-weight: 600; width: 100%; }

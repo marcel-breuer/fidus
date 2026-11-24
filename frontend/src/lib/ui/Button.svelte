@@ -15,6 +15,7 @@
 	.btn {
 		font: inherit;
 		font-weight: 600;
+		min-height: 44px;
 		border-radius: 0.625rem;
 		padding: 0.6rem 1rem;
 		border: 1px solid var(--glass-rim);

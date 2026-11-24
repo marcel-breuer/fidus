@@ -274,8 +274,8 @@
 	.crumb { border: 0; background: transparent; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; padding: .2rem; }
 	.tools { align-items: end; justify-content: space-between; }
 	.create { flex: 1 1 18rem; }
-	.file-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-weight: 600; }
-	.file-picker input { max-width: 100%; font: inherit; }
+	.file-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; min-width: 0; font-weight: 600; }
+	.file-picker input { width: 100%; max-width: 100%; font: inherit; }
 	.uploads, .items { list-style: none; padding: 0; margin: 0; display: grid; gap: .7rem; }
 	.uploads li, .items > li { border: 1px solid var(--glass-rim); border-radius: .8rem; padding: .8rem; }
 	.uploads li { display: grid; gap: .4rem; }

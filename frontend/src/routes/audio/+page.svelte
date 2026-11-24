@@ -253,8 +253,8 @@
 	.tools :global(.field) { flex: 1 1 16rem; }
 	.capture { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 	.timer { font-variant-numeric: tabular-nums; color: var(--muted); }
-	.file-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-weight: 600; }
-	.file-picker input { max-width: 100%; font: inherit; }
+	.file-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; font-weight: 600; }
+	.file-picker input { width: 100%; max-width: 100%; font: inherit; }
 	progress { width: 100%; accent-color: var(--accent); }
 	.memos { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
 	.memos > li { border: 1px solid var(--glass-rim); border-radius: 0.75rem; padding: 1rem; display: grid; gap: 0.75rem; }

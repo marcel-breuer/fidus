@@ -134,6 +134,27 @@ export async function uploadAttachment(conversationId: string, file: File): Prom
 	return await response.json() as { id: string; filename: string };
 }
 
+/** Transcribe a short recording for the composer without creating a memo. */
+export async function transcribeDictation(conversationId: string, file: File): Promise<string> {
+	const form = new FormData();
+	form.append('file', file, file.name);
+	const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/dictation`, {
+		method: 'POST', headers: csrfHeaders(), body: form
+	});
+	assertOk(response);
+	return (await response.json() as { text: string }).text;
+}
+
+/** Fetch speech for an assistant message; the server caches the WAV by message. */
+export async function fetchMessageSpeech(conversationId: string, messageId: string): Promise<Blob> {
+	const response = await fetch(
+		`/api/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/speech`,
+		{ method: 'POST', headers: csrfHeaders() }
+	);
+	assertOk(response);
+	return response.blob();
+}
+
 export async function continueAfterAction(
 	conversationId: string, actionId: string, signal: AbortSignal, onEvent: (event: StreamEvent) => void
 ): Promise<void> {

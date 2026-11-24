@@ -6,8 +6,8 @@ from sqlalchemy.dialects import postgresql
 
 from app.config import get_settings
 
-revision = "0016"
-down_revision = "0015"
+revision = "0017"
+down_revision = "0016"
 branch_labels = None
 depends_on = None
 

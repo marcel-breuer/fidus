@@ -216,7 +216,7 @@
 	.create-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(8rem, 12rem); gap: 0.75rem; align-items: end; }
 	fieldset { grid-column: 1 / -1; display: grid; gap: 0.4rem; margin: 0; padding: 0; border: 0; }
 	legend { font-size: 0.875rem; font-weight: 600; padding: 0; margin-bottom: 0.35rem; }
-	.scope { display: flex; align-items: center; gap: 0.55rem; }
+	.scope { display: flex; align-items: center; gap: 0.55rem; min-height: 44px; }
 	.scope input { width: 1.1rem; height: 1.1rem; accent-color: var(--accent-text); }
 	.submit { grid-column: 1 / -1; }
 	.secret { display: grid; gap: 0.6rem; padding: 0.9rem; border: 1px solid var(--line); border-radius: 0.625rem; background: var(--glass-inset-fill); }

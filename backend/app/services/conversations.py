@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models import Conversation, Message, User
+from app.storage.base import Storage
 
 DEFAULT_TITLE = "New conversation"
 
@@ -91,7 +92,7 @@ async def rename_conversation(
 
 
 async def delete_conversation(
-    session: AsyncSession, user: User, conversation_id: str
+    session: AsyncSession, user: User, conversation_id: str, storage: Storage | None = None
 ) -> bool:
     conversation = await get_conversation(session, user, conversation_id)
     if conversation is None:
@@ -99,6 +100,14 @@ async def delete_conversation(
     now = datetime.now(UTC)
     conversation.deleted_at = now
     conversation.updated_at = now
+    message_rows = await session.scalars(
+        select(Message.speech_key).where(
+            Message.conversation_id == conversation_id,
+            Message.user_id == user.id,
+            Message.speech_key.is_not(None),
+        )
+    )
+    speech_keys = list(message_rows.all())
     await session.execute(
         text(
             "UPDATE messages SET deleted_at = :now WHERE conversation_id = :id "
@@ -106,6 +115,12 @@ async def delete_conversation(
         ),
         {"now": now, "id": conversation_id, "user_id": user.id},
     )
+    if storage is not None and speech_keys:
+        async def remove_speech() -> None:
+            for key in speech_keys:
+                await storage.delete(key)
+
+        session.info.setdefault("after_commit", []).append(remove_speech)
     return True
 
 
