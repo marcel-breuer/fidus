@@ -38,11 +38,13 @@ from app.ai.deps import (  # noqa: E402
     get_chat_provider,
     get_embedding_provider,
     get_speech_provider,
+    get_transcription_provider,
     get_web_search_provider,
 )
 from app.ai.fakes import (  # noqa: E402
     FakeChatProvider,
     FakeSpeechProvider,
+    FakeTranscriptionProvider,
     FakeWebSearchProvider,
     KeywordEmbeddingProvider,
 )
@@ -191,6 +193,7 @@ async def client(
     app.dependency_overrides[get_web_search_provider] = lambda: web_search
     app.dependency_overrides[get_storage] = lambda: memory_storage
     app.dependency_overrides[get_speech_provider] = lambda: speech_provider
+    app.dependency_overrides[get_transcription_provider] = lambda: FakeTranscriptionProvider(["test transcript"])
     async def skip_index_queue(user_id: str, document_id: str) -> None:
         return None
 

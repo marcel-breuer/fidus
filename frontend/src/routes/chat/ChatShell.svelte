@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
@@ -10,11 +10,14 @@
 		renameConversation,
 		streamMessage,
 		uploadAttachment,
+		fetchMessageSpeech,
+		transcribeDictation,
 		continueAfterAction,
 		type ChatMessage,
 		type Conversation,
 		type StreamEvent
 	} from '$lib/api/chat';
+	import { pickRecorderFormat } from '$lib/api/audio';
 	import { actionSummary, decideAction, fileSourceHref, listActions, parseSources, safeHref, type AgentAction } from '$lib/api/agent';
 	import { renderMarkdown } from '$lib/markdown';
 	import { getT } from '$lib/i18n/context';
@@ -48,9 +51,26 @@
 	let shouldFollow = true;
 	let messagesElement = $state<HTMLDivElement>();
 	let composer = $state<HTMLTextAreaElement>();
+	let recording = $state(false);
+	let dictating = $state(false);
+	let dictationError = $state(false);
+	let speechLoadingId = $state('');
+	let speechErrorId = $state('');
+	let recorder: MediaRecorder | null = null;
+	let recordingStream: MediaStream | null = null;
+	let recordingChunks: Blob[] = [];
+	let recordingTimer: ReturnType<typeof setTimeout> | null = null;
 	let initialId = untrack(() => conversationId);
 
 	onMount(() => { void load(); });
+	onDestroy(() => {
+		if (recordingTimer) clearTimeout(recordingTimer);
+		if (recorder) {
+			recorder.onstop = null;
+			if (recorder.state === 'recording') recorder.stop();
+		}
+		releaseRecordingStream();
+	});
 
 	async function load() {
 		loading = true;
@@ -252,6 +272,91 @@
 
 	function stop() { controller?.abort(); }
 
+	async function startDictation() {
+		if (!navigator.mediaDevices?.getUserMedia || !('MediaRecorder' in window)) {
+			dictationError = true;
+			return;
+		}
+		const format = pickRecorderFormat((mime) => MediaRecorder.isTypeSupported(mime));
+		if (!format) {
+			dictationError = true;
+			return;
+		}
+		dictationError = false;
+		dictating = true;
+		try {
+			if (!activeId) {
+				const created = await createConversation();
+				activeId = created.id;
+				conversations = [created, ...conversations];
+				replaceState(`/chat/${created.id}`, {});
+			}
+			recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			recordingChunks = [];
+			recorder = new MediaRecorder(recordingStream, { mimeType: format.mime });
+			recorder.ondataavailable = (event) => { if (event.data.size) recordingChunks.push(event.data); };
+			recorder.onstop = () => { void finishDictation(format.extension); };
+			recorder.start();
+			recording = true;
+			recordingTimer = setTimeout(stopDictation, 59_000);
+		} catch {
+			dictationError = true;
+			dictating = false;
+			releaseRecordingStream();
+		}
+	}
+
+	function stopDictation() {
+		if (recordingTimer) clearTimeout(recordingTimer);
+		recordingTimer = null;
+		if (recorder?.state === 'recording') recorder.stop();
+		recording = false;
+	}
+
+	function releaseRecordingStream() {
+		recordingStream?.getTracks().forEach((track) => track.stop());
+		recordingStream = null;
+	}
+
+	async function finishDictation(extension: string) {
+		const blob = new Blob(recordingChunks, { type: recorder?.mimeType || 'audio/webm' });
+		releaseRecordingStream();
+		recorder = null;
+		if (!blob.size || !activeId) {
+			dictationError = true;
+			dictating = false;
+			return;
+		}
+		try {
+			const transcript = await transcribeDictation(activeId, new File([blob], `dictation${extension}`, { type: blob.type }));
+			draft = `${draft.trimEnd()}${draft.trim() ? ' ' : ''}${transcript}`;
+			await tick();
+			composer?.focus();
+		} catch {
+			dictationError = true;
+		} finally {
+			dictating = false;
+		}
+	}
+
+	async function readAloud(message: DisplayMessage) {
+		if (!activeId || message.id === 'streaming-assistant') return;
+		speechLoadingId = message.id;
+		speechErrorId = '';
+		try {
+			const blob = await fetchMessageSpeech(activeId, message.id);
+			const source = URL.createObjectURL(blob);
+			const player = new Audio(source);
+			player.onended = () => URL.revokeObjectURL(source);
+			player.onerror = () => { URL.revokeObjectURL(source); speechErrorId = message.id; };
+			await player.play();
+		} catch {
+			speechErrorId = message.id;
+		} finally {
+			speechLoadingId = '';
+		}
+	}
+
 	async function decide(action: AgentAction, approve: boolean) {
 		busyId = action.id;
 		actionFailed = false;
@@ -341,6 +446,12 @@
 							</ul>
 						{/if}
 						{#if message.role === 'assistant'}
+							{#if message.id !== 'streaming-assistant' && message.content}
+								<div class="message-actions">
+									<Button type="button" variant="quiet" disabled={speechLoadingId === message.id} onclick={() => void readAloud(message)}>{speechLoadingId === message.id ? t('chat.speechLoading') : t('chat.readAloud')}</Button>
+									{#if speechErrorId === message.id}<span class="speaker" role="status">{t('chat.speechError')}</span>{/if}
+								</div>
+							{/if}
 							{@const sources = parseSources(message.citations)}
 							{#if sources.length}
 								<div class="sources">
@@ -394,6 +505,7 @@
 			{#if activeTool}<p class="speaker" role="status">{t('chat.toolRunning', { tool: toolLabel(activeTool) })}</p>{/if}
 			<label class="visually-hidden" for="chat-composer">{t('chat.composer')}</label>
 			<textarea id="chat-composer" bind:this={composer} bind:value={draft} class="glass-control" rows="3" maxlength="20000" placeholder={t('chat.placeholder')} disabled={streaming} onkeydown={composerKeydown}></textarea>
+			{#if dictationError}<Alert>{t('chat.dictationError')}</Alert>{/if}
 			<label for="chat-attachments">{t('chat.attachments')}</label>
 			<input id="chat-attachments" type="file" accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp" multiple disabled={streaming} onchange={(event) => {
 				const selected = Array.from(event.currentTarget.files ?? []);
@@ -414,6 +526,11 @@
 				</ul>
 			{/if}
 			<div class="composer-actions">
+				{#if recording}
+					<Button type="button" variant="quiet" onclick={stopDictation}>{t('chat.stopRecording')}</Button>
+				{:else}
+					<Button type="button" variant="quiet" disabled={streaming || dictating} onclick={() => void startDictation()}>{dictating ? t('chat.transcribing') : t('chat.dictate')}</Button>
+				{/if}
 				{#if failed && lastSubmitted}<Button type="button" variant="quiet" disabled={streaming} onclick={() => void send(lastSubmitted)}>{t('chat.retry')}</Button>{/if}
 				{#if streaming}
 					<Button type="button" variant="quiet" onclick={stop}>{t('chat.stop')}</Button>
@@ -454,6 +571,7 @@
 	.bubble :global(code) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 	.memory-link { font-size: 0.85rem; color: var(--accent-text); }
 	.sources, .action { margin-top: 0.5rem; }
+	.message-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; }
 	.sources ol { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.3rem; font-size: 0.85rem; overflow-wrap: anywhere; }
 	.sources .kind { color: var(--muted); margin-right: 0.35rem; }
 	.sources .snippet { display: block; color: var(--muted); }

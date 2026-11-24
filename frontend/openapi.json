@@ -483,6 +483,20 @@
         "title": "Body_post_upload_api_v1_files_upload_post",
         "type": "object"
       },
+      "Body_transcribe_dictation_api_v1_conversations__conversation_id__dictation_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_transcribe_dictation_api_v1_conversations__conversation_id__dictation_post",
+        "type": "object"
+      },
       "Body_upload_attachment_api_v1_conversations__conversation_id__attachments_post": {
         "properties": {
           "file": {
@@ -700,6 +714,19 @@
           "title"
         ],
         "title": "ConversationRename",
+        "type": "object"
+      },
+      "DictationOut": {
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "DictationOut",
         "type": "object"
       },
       "DocumentStatusOut": {
@@ -3855,6 +3882,82 @@
         ]
       }
     },
+    "/api/v1/conversations/{conversation_id}/dictation": {
+      "post": {
+        "operationId": "transcribe_dictation_api_v1_conversations__conversation_id__dictation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Language"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transcribe_dictation_api_v1_conversations__conversation_id__dictation_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Per-user transcription limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Transcribe Dictation",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
     "/api/v1/conversations/{conversation_id}/messages": {
       "get": {
         "operationId": "get_messages_api_v1_conversations__conversation_id__messages_get",
@@ -3983,6 +4086,69 @@
           }
         ],
         "summary": "Stream Message",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/messages/{message_id}/speech": {
+      "post": {
+        "operationId": "post_message_speech_api_v1_conversations__conversation_id__messages__message_id__speech_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "audio/wav": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Per-user chat request limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Message Speech",
         "tags": [
           "conversations"
         ]

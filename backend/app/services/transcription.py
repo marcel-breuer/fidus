@@ -5,6 +5,7 @@ import logging
 import tempfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import NamedTuple
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -27,13 +28,23 @@ SEGMENT_BITRATE = 32_000  # bits per second, matches `-b:a 32k` below
 Segmenter = Callable[[bytes, str], Awaitable[list[bytes]]]
 
 
+class ShortTranscription(NamedTuple):
+    text: str
+    seconds: int
+
+
 class TranscriptionError(Exception):
     def __init__(self, code: str) -> None:
         self.code = code
         super().__init__(code)
 
 
-async def split_with_ffmpeg(data: bytes, extension: str, segment_seconds: int = SEGMENT_SECONDS) -> list[bytes]:
+async def split_with_ffmpeg(
+    data: bytes,
+    extension: str,
+    segment_seconds: int = SEGMENT_SECONDS,
+    max_duration_seconds: int | None = None,
+) -> list[bytes]:
     """Re-encode to mono 16 kHz MP3 and cut into fixed-length segments."""
     with tempfile.TemporaryDirectory(prefix="fidus-audio-") as directory:
         root = Path(directory)
@@ -43,6 +54,7 @@ async def split_with_ffmpeg(data: bytes, extension: str, segment_seconds: int = 
             process = await asyncio.create_subprocess_exec(
                 "ffmpeg", "-nostdin", "-v", "error", "-i", str(source), "-vn",
                 "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "32k",
+                *(["-t", str(max_duration_seconds)] if max_duration_seconds is not None else []),
                 "-f", "segment", "-segment_time", str(segment_seconds), "-reset_timestamps", "1",
                 str(root / "segment_%05d.mp3"),
                 stdout=asyncio.subprocess.DEVNULL,
@@ -77,6 +89,43 @@ async def transcribe_segments(
     language: str | None = None,
 ) -> str:
     return (await _transcribe(data, extension, transcriber, segmenter, language))[0]
+
+
+async def transcribe_short_clip(
+    data: bytes,
+    filename: str,
+    transcriber: TranscriptionProvider,
+    max_seconds: int,
+    language: str | None = None,
+    segmenter: Segmenter = split_with_ffmpeg,
+) -> ShortTranscription:
+    """Transcribe one bounded clip without creating a memo or storing its transcript."""
+    from app.services.audio_formats import TYPES, matches_signature
+
+    name = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    extension = ("." + name.rsplit(".", 1)[-1]).lower() if "." in name else ""
+    if extension not in TYPES or not matches_signature(extension, data[:12]):
+        raise TranscriptionError("UNSUPPORTED_TYPE")
+    if segmenter is split_with_ffmpeg:
+        segments = await split_with_ffmpeg(data, extension, max_duration_seconds=max_seconds + 1)
+    else:
+        segments = await segmenter(data, extension)
+    duration = sum(len(segment) for segment in segments) * 8 / SEGMENT_BITRATE
+    seconds = round(duration)
+    if seconds < 1:
+        raise TranscriptionError("CORRUPT_AUDIO")
+    if duration > max_seconds:
+        raise TranscriptionError("CLIP_TOO_LONG")
+    parts: list[str] = []
+    for index, segment in enumerate(segments):
+        try:
+            parts.append(await transcriber.transcribe(segment, f"segment-{index:05d}.mp3", language))
+        except Exception as exc:
+            raise TranscriptionError("TRANSCRIPTION_FAILED") from exc
+    text = " ".join(part for part in parts if part).strip()
+    if not text:
+        raise TranscriptionError("EMPTY_TRANSCRIPT")
+    return ShortTranscription(text, seconds)
 
 
 async def _transcribe(
@@ -213,6 +262,6 @@ async def process_memo_job(
 
 
 def _extension(mime_type: str) -> str:
-    from app.services.audio import extension_for_mime
+    from app.services.audio_formats import extension_for_mime
 
     return extension_for_mime(mime_type)
