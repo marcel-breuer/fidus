@@ -2,7 +2,7 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Invitation, User
@@ -31,30 +31,22 @@ async def create_invitation(
     return invitation, token
 
 
-async def list_invitations(session: AsyncSession, admin_user: User) -> list[Invitation]:
-    result = await session.scalars(
-        select(Invitation)
-        .where(
-            Invitation.created_by == admin_user.id,
-            Invitation.used_at.is_(None),
-            Invitation.expires_at > datetime.now(UTC),
-        )
-        .order_by(Invitation.created_at.desc())
-    )
-    return list(result)
+async def list_invitations(session: AsyncSession, admin_user: User) -> list[dict[str, object]]:
+    if not admin_user.is_superuser or not admin_user.is_active:
+        raise PermissionError("ADMIN_REQUIRED")
+    result = await session.execute(text("SELECT * FROM admin_list_invitations()"))
+    return [dict(row) for row in result.mappings()]
 
 
 async def revoke_invitation(session: AsyncSession, admin_user: User, invitation_id: str) -> bool:
-    invitation = await session.scalar(
-        select(Invitation).where(
-            Invitation.id == invitation_id,
-            Invitation.created_by == admin_user.id,
-            Invitation.used_at.is_(None),
-        )
+    if not admin_user.is_superuser or not admin_user.is_active:
+        raise PermissionError("ADMIN_REQUIRED")
+    revoked = await session.scalar(
+        text("SELECT admin_revoke_invitation(:invitation_id)"),
+        {"invitation_id": invitation_id},
     )
-    if invitation is None:
+    if not revoked:
         return False
-    await session.delete(invitation)
     await audit.record(
         session, admin_user, "admin.invitation.revoke", "invitation", invitation_id, actor="admin"
     )

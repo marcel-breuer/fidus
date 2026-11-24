@@ -186,7 +186,8 @@ async def test_rejected_action_changes_nothing(
     assert rejected.json()["status"] == "rejected"
     async with user_session(user_id) as session:
         assert (await session.scalars(select(Task))).all() == []
-        assert (await session.scalars(select(AuditLog))).all() == []
+        entry = (await session.scalars(select(AuditLog))).one()
+        assert (entry.action, entry.actor, entry.target_id) == ("agent.action.reject", "user", action_id)
 
 
 async def test_decision_outcome_is_sent_to_model_and_assistant_continues(
@@ -418,7 +419,8 @@ async def test_rejected_file_write_changes_nothing(
     assert await _file_names(client) == []
     assert memory_storage.objects == {}
     async with user_session(user_id) as session:
-        assert (await session.scalars(select(AuditLog))).all() == []
+        entries = (await session.scalars(select(AuditLog))).all()
+        assert [(item.action, item.actor) for item in entries] == [("agent.action.reject", "user")]
 
 
 async def test_allow_mode_update_file_adds_version_and_queues_indexing(

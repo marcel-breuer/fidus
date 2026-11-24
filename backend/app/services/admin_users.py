@@ -1,6 +1,8 @@
 """Administrative user management. Every change is audited in the admin's transaction."""
 
-from sqlalchemy import select, text
+from datetime import datetime
+
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User
@@ -29,9 +31,27 @@ def _require_admin(admin: User) -> None:
         raise PermissionError("ADMIN_REQUIRED")
 
 
-async def list_users(session: AsyncSession, admin: User) -> list[User]:
+async def list_users(
+    session: AsyncSession,
+    admin: User,
+    *,
+    query: str = "",
+    before_created_at: datetime | None = None,
+    before_id: str | None = None,
+    limit: int = 50,
+) -> list[User]:
     _require_admin(admin)
-    return list((await session.scalars(select(User).order_by(User.created_at, User.id))).all())
+    statement = select(User)
+    if query:
+        escaped_query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        statement = statement.where(User.email.ilike(f"%{escaped_query}%", escape="\\"))
+    if before_created_at is not None and before_id is not None:
+        statement = statement.where(
+            or_(User.created_at > before_created_at,
+                (User.created_at == before_created_at) & (User.id > before_id))
+        )
+    statement = statement.order_by(User.created_at, User.id).limit(limit + 1)
+    return list((await session.scalars(statement)).all())
 
 
 async def update_user(

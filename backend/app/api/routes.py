@@ -159,7 +159,7 @@ async def get_invitations(
 ) -> list[InvitationOut]:
     _require_admin(user)
     return [
-        InvitationOut(id=item.id, expires_at=item.expires_at)
+        InvitationOut(id=str(item["id"]), expires_at=item["expires_at"])
         for item in await list_invitations(session, user)
     ]
 
