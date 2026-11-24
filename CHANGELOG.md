@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.3.0](https://github.com/marcel-breuer/fidus/compare/v1.2.0...v1.3.0) (2026-11-24)
+
+
+### Features
+
+* add per-user limits and memo recovery ([7b3df89](https://github.com/marcel-breuer/fidus/commit/7b3df8971799b1b11bbde949ee5d68334908f8ea))
+* **admin:** add audit views and shared invitations ([1d14ee2](https://github.com/marcel-breuer/fidus/commit/1d14ee2f30b4780f67bc57e7160c6bd429ffda3f))
+* **admin:** audit views, paginated users and cross-admin invitations ([7e2538f](https://github.com/marcel-breuer/fidus/commit/7e2538f5d170dc0edf771b9e0072e00f7d61cb56))
+* **chat:** add cached speech and voice dictation ([cdb4680](https://github.com/marcel-breuer/fidus/commit/cdb4680c0a7015d32d9a0a14d130f0478462a3cd))
+* **chat:** add message attachments and action follow-up ([0bdef49](https://github.com/marcel-breuer/fidus/commit/0bdef4957fa3f52cdf044727b9d3544735cb38d4))
+* **chat:** cached read-aloud and voice dictation ([bba937c](https://github.com/marcel-breuer/fidus/commit/bba937c0a72a25d43962ecc5c534f09d4cd05f99))
+* **chat:** message attachments and follow-up after agent decisions ([9f830ae](https://github.com/marcel-breuer/fidus/commit/9f830ae9eb4df7ac2efb210327ad7db938af3388))
+* **mcp:** add OAuth 2.1 authorization ([aebc60b](https://github.com/marcel-breuer/fidus/commit/aebc60b9b2407a27fe0e9757eeaa9e5e73295e6e))
+* **mcp:** expose scoped file tools and resources ([9f93770](https://github.com/marcel-breuer/fidus/commit/9f937705b19274d29d8feffcae3f4035ba9c82f7))
+* **mcp:** OAuth 2.1 authorization for MCP clients ([9da3f0c](https://github.com/marcel-breuer/fidus/commit/9da3f0c68eceb83f95ef4f6b056cb3a74f55ec27))
+* **mcp:** scoped file tools and resources ([cb5f907](https://github.com/marcel-breuer/fidus/commit/cb5f907fbcb9077cfa1f5cdd4a0383740afb4cf9))
+* per-user rate limits and recovery of stuck memos ([9a92e34](https://github.com/marcel-breuer/fidus/commit/9a92e3443f3219ae1a59f2b8e7f97e649acc930f))
+
+
+### Bug Fixes
+
+* **audio:** restart the recovery timeout when a stale memo is requeued ([7abb09a](https://github.com/marcel-breuer/fidus/commit/7abb09a1e0e7aa23b8e3fadc8c5f32765a7994f8))
+* **chat:** apply per-user limits to attachment uploads and action follow-ups ([d3fa73f](https://github.com/marcel-breuer/fidus/commit/d3fa73ffd754a297d642fcf6a9d711db2fe7e839))
+* **compose:** derive the backend image name from the project name ([e0b60ba](https://github.com/marcel-breuer/fidus/commit/e0b60bad2423f649e14ebba853609190a31b81fd))
+* **compose:** derive the backend image name from the project name ([f4a816d](https://github.com/marcel-breuer/fidus/commit/f4a816dc74431d69a327b22cc95f7b2da719518b)), closes [#49](https://github.com/marcel-breuer/fidus/issues/49)
+* **ui:** harden mobile glass accessibility ([896abb0](https://github.com/marcel-breuer/fidus/commit/896abb03498a394f7bf538fcfb08573b75610a1d))
+* **ui:** mobile layout, contrast fallbacks and focus handling ([52f5ff2](https://github.com/marcel-breuer/fidus/commit/52f5ff2a93727b8f8f83b824c0967c9b0929fdfc))
+
+
+### Documentation
+
+* record MCP file tools in the audit and tool sections ([18c278f](https://github.com/marcel-breuer/fidus/commit/18c278f784b0831c22fa6bee5612230e8dfd71c5))
+
 ## [1.2.0](https://github.com/marcel-breuer/fidus/compare/v1.1.0...v1.2.0) (2026-11-23)
 
 
