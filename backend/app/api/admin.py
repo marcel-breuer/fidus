@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +11,7 @@ from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
 from app.config import RegistrationMode, get_settings
 from app.db.models import User
-from app.services import admin_users, instance_settings
+from app.services import admin_users, audit, instance_settings, pagination
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -28,6 +28,26 @@ class AdminUserOut(BaseModel):
     role: Literal["admin", "member"]
     is_active: bool
     created_at: datetime
+
+
+class AdminUsersPage(BaseModel):
+    items: list[AdminUserOut]
+    next_cursor: str | None
+
+
+class AdminAuditEntryOut(BaseModel):
+    id: str
+    user_id: str
+    actor: str
+    action: str
+    target_type: str
+    target_id: str | None
+    created_at: datetime
+
+
+class AdminAuditPage(BaseModel):
+    items: list[AdminAuditEntryOut]
+    next_cursor: str | None
 
 
 class AdminUserUpdate(BaseModel):
@@ -66,12 +86,56 @@ async def _registration_out(session: AsyncSession) -> RegistrationOut:
     )
 
 
-@router.get("/users", response_model=list[AdminUserOut])
+@router.get("/users", response_model=AdminUsersPage)
 async def get_users(
+    q: str = Query(default="", max_length=254),
+    limit: int = Query(default=50, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=512),
     admin: User = Depends(current_admin),
     session: AsyncSession = Depends(get_user_scoped_session),
-) -> list[AdminUserOut]:
-    return [_user_out(user) for user in await admin_users.list_users(session, admin)]
+) -> AdminUsersPage:
+    try:
+        decoded = pagination.decode_cursor(cursor)
+    except pagination.InvalidCursor as exc:
+        raise HTTPException(status_code=400, detail="INVALID_CURSOR") from exc
+    rows = await admin_users.list_users(
+        session, admin, query=q.strip(),
+        before_created_at=decoded.created_at if decoded else None,
+        before_id=decoded.item_id if decoded else None,
+        limit=limit,
+    )
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = pagination.encode_cursor(last.created_at, last.id)
+        rows = rows[:limit]
+    return AdminUsersPage(items=[_user_out(user) for user in rows], next_cursor=next_cursor)
+
+
+@router.get("/audit", response_model=AdminAuditPage)
+async def get_admin_audit(
+    limit: int = Query(default=50, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=512),
+    admin: User = Depends(current_admin),
+    session: AsyncSession = Depends(get_user_scoped_session),
+) -> AdminAuditPage:
+    try:
+        decoded = pagination.decode_cursor(cursor)
+    except pagination.InvalidCursor as exc:
+        raise HTTPException(status_code=400, detail="INVALID_CURSOR") from exc
+    rows = await audit.list_instance_entries(
+        session,
+        admin,
+        before_created_at=decoded.created_at if decoded else None,
+        before_id=decoded.item_id if decoded else None,
+        limit=limit + 1,
+    )
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = pagination.encode_cursor(last["created_at"], str(last["id"]))
+        rows = rows[:limit]
+    return AdminAuditPage(items=[AdminAuditEntryOut(**row) for row in rows], next_cursor=next_cursor)
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserOut)

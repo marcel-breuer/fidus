@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Admin Audit */
+        get: operations["get_admin_audit_api_v1_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/modules": {
         parameters: {
             query?: never;
@@ -363,6 +380,40 @@ export interface paths {
         get: operations["get_conversation_actions_api_v1_conversations__conversation_id__actions_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}/actions/{action_id}/continue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Continue After Action */
+        post: operations["continue_after_action_api_v1_conversations__conversation_id__actions__action_id__continue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Attachment */
+        post: operations["upload_attachment_api_v1_conversations__conversation_id__attachments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -891,6 +942,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdminAuditEntryOut */
+        AdminAuditEntryOut: {
+            /** Action */
+            action: string;
+            /** Actor */
+            actor: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Target Id */
+            target_id: string | null;
+            /** Target Type */
+            target_type: string;
+            /** User Id */
+            user_id: string;
+        };
+        /** AdminAuditPage */
+        AdminAuditPage: {
+            /** Items */
+            items: components["schemas"]["AdminAuditEntryOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** AdminModuleOut */
         AdminModuleOut: {
             /** Enabled */
@@ -926,6 +1004,13 @@ export interface components {
             /** Role */
             role?: ("admin" | "member") | null;
         };
+        /** AdminUsersPage */
+        AdminUsersPage: {
+            /** Items */
+            items: components["schemas"]["AdminUserOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** AgentActionOut */
         AgentActionOut: {
             /** Arguments */
@@ -960,6 +1045,17 @@ export interface components {
              * @enum {string}
              */
             write_mode: "ask" | "allow";
+        };
+        /** AttachmentOut */
+        AttachmentOut: {
+            /** Filename */
+            filename: string;
+            /** Id */
+            id: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Size Bytes */
+            size_bytes: number;
         };
         /** AuditEntryOut */
         AuditEntryOut: {
@@ -1019,8 +1115,15 @@ export interface components {
             /** Parent Id */
             parent_id?: string | null;
         };
+        /** Body_upload_attachment_api_v1_conversations__conversation_id__attachments_post */
+        Body_upload_attachment_api_v1_conversations__conversation_id__attachments_post: {
+            /** File */
+            file: string;
+        };
         /** ChatMessageCreate */
         ChatMessageCreate: {
+            /** Attachment Ids */
+            attachment_ids?: string[];
             /** Content */
             content: string;
         };
@@ -1253,6 +1356,8 @@ export interface components {
         };
         /** MessageOut */
         MessageOut: {
+            /** Attachments */
+            attachments?: components["schemas"]["AttachmentOut"][];
             /** Citations */
             citations: {
                 [key: string]: unknown;
@@ -1647,6 +1752,38 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_admin_audit_api_v1_admin_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAuditPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_admin_modules_api_v1_admin_modules_get: {
         parameters: {
             query?: never;
@@ -1757,7 +1894,11 @@ export interface operations {
     };
     get_users_api_v1_admin_users_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                limit?: number;
+                cursor?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1770,7 +1911,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminUserOut"][];
+                    "application/json": components["schemas"]["AdminUsersPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2514,6 +2664,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentActionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    continue_after_action_api_v1_conversations__conversation_id__actions__action_id__continue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                action_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_attachment_api_v1_conversations__conversation_id__attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_api_v1_conversations__conversation_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
                 };
             };
             /** @description Validation Error */

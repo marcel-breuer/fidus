@@ -25,7 +25,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Reminders | In-app only (no e-mail, no push) |
 
 ## Implementation status
-Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and an audit log for agent writes), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`) are implemented. Usage counters, structured JSON logs, backup and restore scripts, the operations runbook and the security review (`Refs #23`) are implemented. Chat attachments and OAuth remain unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
+Implemented: Docker Compose stack, authentication with registration modes and sign-out-everywhere, scheduled expired-session cleanup, module registry and sidebar, row-level security, worker with scheduled jobs, German and English UI shell, the Tasks module with in-app reminders, chat Stages 1–3 (`Refs #18`: model configuration, provider interface, conversations/messages persistence, REST routes, SSE chat completion, chat UI, durable memories with a management page, conversation history search, web search, citations, typed agent tools with ask-before-write confirmation, and a private agent activity log), and Files Stages 1–2 (`Refs #19`: private storage, folders, streamed uploads, versioning, extraction, chunking, embeddings, hybrid search, indexing status and search UI). Administration includes cross-admin invitation management, searchable paginated users and an instance audit viewer. The audio module (`Refs #20`: browser recording and upload, worker transcription with ffmpeg segmenting, searchable transcripts, on-demand read-aloud and the audio page) is implemented. Personal access tokens with a settings page and an MCP server at `/mcp` exposing task, knowledge-search and conversation-search tools with audited writes (`Refs #22`) are implemented. Usage counters, structured JSON logs, backup and restore scripts, the operations runbook and the security review (`Refs #23`) are implemented. Chat attachments (PDF, text and images) and follow-up turns after agent action decisions (`Refs #51–#52`) are implemented; OAuth remains unimplemented; see [architecture/overview.md](architecture/overview.md) section 0 for details and known gaps.
 
 ## MVP scope
 
@@ -33,10 +33,10 @@ Implemented: Docker Compose stack, authentication with registration modes and si
 - Multiple conversations (sidebar list, rename, delete)
 - Streaming responses with Markdown and code rendering
 - Source references (documents and web links): implemented
-- File attachments on messages (PDF, text, images): not implemented
+- File attachments on messages (PDF, text and images): implemented; 10 MiB per file and 5 files per message. Extracted text is passed as untrusted context; images are sent through the configured chat provider.
 - Knowledge: RAG over uploaded files, conversation history search, durable memories and web search are implemented; notes are not
 
-Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete at `/chat/memories`; injected into chat context), conversation history search, web search through a provider interface, numbered citations for file passages, earlier messages and web results, and typed agent tools (`search_knowledge`, `search_conversations`, `web_search`, `remember`, `create_task`, `create_file`, `update_file`). Agent writes ask for confirmation in the chat by default; a per-user setting lets the assistant act without asking. Every agent write is recorded in `audit_log`. Attachments remain unimplemented.
+Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete at `/chat/memories`; injected into chat context), conversation history search, web search through a provider interface, numbered citations for file passages, earlier messages and web results, and typed agent tools (`search_knowledge`, `search_conversations`, `web_search`, `remember`, `create_task`, `create_file`, `update_file`). Agent writes ask for confirmation in the chat by default; a per-user setting lets the assistant act without asking. Agent writes, rejected actions, and user memory edits/deletions are recorded in the user's audit log, viewable at `/chat/audit`. Attachments are stored privately, and approving or rejecting an action starts a follow-up assistant turn. Resuming an interrupted stream is not implemented.
 
 ### Audio
 - Browser recording (MediaRecorder) and file upload on the audio page; inserting a transcript into a chat message is not implemented
@@ -67,9 +67,10 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 - Later modules (e.g. calendar) plug in without changing the core
 
 ### Administration
-- Admins create, list and revoke invitations and set their expiry from `/admin`; invitation tokens are shown once with a registration link
+- Admins create, list and revoke invitations and set their expiry from `/admin`; all active admins can see and revoke invitations, and invitation tokens are shown once with a registration link
 - Admins can enable or disable registered modules for the instance
-- Admins list users, deactivate and reactivate them, and change roles from `/admin`; they cannot deactivate or demote themselves, and the last active admin is protected
+- Admins search and cursor-paginate users, deactivate and reactivate them, and change roles from `/admin`; they cannot deactivate or demote themselves, and the last active admin is protected
+- Admins view cursor-paginated instance audit metadata from `/admin`; audit rows remain owner-scoped in RLS and the view is exposed only through reviewed admin-checked database functions
 - Admins change the registration mode (open, invite-only, closed) at runtime; it overrides `REGISTRATION_MODE`, which stays the default
 - Administrative actions are recorded in the audit log
 

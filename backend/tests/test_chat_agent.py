@@ -186,7 +186,44 @@ async def test_rejected_action_changes_nothing(
     assert rejected.json()["status"] == "rejected"
     async with user_session(user_id) as session:
         assert (await session.scalars(select(Task))).all() == []
-        assert (await session.scalars(select(AuditLog))).all() == []
+        entry = (await session.scalars(select(AuditLog))).one()
+        assert (entry.action, entry.actor, entry.target_id) == ("agent.action.reject", "user", action_id)
+
+
+async def test_decision_outcome_is_sent_to_model_and_assistant_continues(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider
+) -> None:
+    await _login(client, "continuation@example.com")
+    conversation_id = await _conversation(client)
+    chat_provider.rounds = [_round(_call("remember", {"content": "Likes tea"}))]
+    events = await _ask(client, conversation_id)
+    action_id = dict(events)["action"]["id"]
+    assert (await client.post(f"/api/v1/agent/actions/{action_id}/reject")).status_code == 200
+    chat_provider.rounds.append(_round(TextDelta("Understood; I will not save that.")))
+    continued = await client.post(
+        f"/api/v1/conversations/{conversation_id}/actions/{action_id}/continue"
+    )
+    assert continued.status_code == 200
+    assert [event for event, _ in _events(continued.text)] == ["delta", "done"]
+    request = chat_provider.requests[-1]
+    assert request.messages[-1].role == "system"
+    assert "rejected" in request.messages[-1].content
+    assert "remember" in request.messages[-1].content
+
+
+async def test_other_user_cannot_continue_action(
+    client: httpx.AsyncClient, chat_provider: SequencedChatProvider
+) -> None:
+    await _login(client, "continue-owner@example.com")
+    conversation_id = await _conversation(client)
+    chat_provider.rounds = [_round(_call("remember", {"content": "private"}))]
+    action_id = dict(await _ask(client, conversation_id))["action"]["id"]
+    await client.post(f"/api/v1/agent/actions/{action_id}/reject")
+    await _login(client, "continue-other@example.com")
+    response = await client.post(
+        f"/api/v1/conversations/{conversation_id}/actions/{action_id}/continue"
+    )
+    assert response.status_code == 404
 
 
 async def test_allow_mode_executes_write_immediately_and_audits(
@@ -382,7 +419,8 @@ async def test_rejected_file_write_changes_nothing(
     assert await _file_names(client) == []
     assert memory_storage.objects == {}
     async with user_session(user_id) as session:
-        assert (await session.scalars(select(AuditLog))).all() == []
+        entries = (await session.scalars(select(AuditLog))).all()
+        assert [(item.action, item.actor) for item in entries] == [("agent.action.reject", "user")]
 
 
 async def test_allow_mode_update_file_adds_version_and_queues_indexing(

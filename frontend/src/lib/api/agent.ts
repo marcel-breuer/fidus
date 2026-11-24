@@ -3,13 +3,15 @@ import { createApiClient } from './http';
 
 export type Memory = components['schemas']['MemoryOut'];
 export type AgentAction = components['schemas']['AgentActionOut'];
+export type AgentAuditEntry = components['schemas']['AuditEntryOut'];
 export type WriteMode = components['schemas']['AgentSettingsOut']['write_mode'];
 
 /** A source the assistant relied on; `ref` matches the [n] markers in the answer. */
 export type SourceReference =
 	| { type: 'file'; ref: number; file_name: string; node_id: string; folder_id: string | null; version: number; position: number; snippet: string }
 	| { type: 'web'; ref: number; title: string; url: string }
-	| { type: 'conversation'; ref: number; conversation_id: string; message_id: string; snippet: string };
+	| { type: 'conversation'; ref: number; message_id: string; conversation_id: string; snippet: string }
+	| { type: 'attachment'; ref: number; filename: string };
 
 const api = createApiClient(fetch, '');
 
@@ -57,6 +59,12 @@ export async function setWriteMode(writeMode: WriteMode): Promise<WriteMode> {
 	return (data as { write_mode: WriteMode }).write_mode;
 }
 
+export async function listAgentAudit(): Promise<AgentAuditEntry[]> {
+	const { data, response } = await api.GET('/api/v1/agent/audit');
+	assertOk(response);
+	return data as AgentAuditEntry[];
+}
+
 export async function listActions(conversationId: string): Promise<AgentAction[]> {
 	const { data, response } = await api.GET('/api/v1/conversations/{conversation_id}/actions', {
 		params: { path: { conversation_id: conversationId } }
@@ -91,6 +99,7 @@ export function parseSources(value: unknown): SourceReference[] {
 		if (item.type === 'web' && typeof item.url === 'string' && typeof item.title === 'string') result.push(item);
 		else if (item.type === 'file' && typeof item.node_id === 'string' && typeof item.file_name === 'string') result.push(item);
 		else if (item.type === 'conversation' && typeof item.conversation_id === 'string') result.push(item);
+		else if (item.type === 'attachment' && typeof item.filename === 'string') result.push(item);
 	}
 	return result.sort((a, b) => a.ref - b.ref);
 }

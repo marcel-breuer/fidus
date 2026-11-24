@@ -88,12 +88,13 @@ export async function streamMessage(
 	conversationId: string,
 	content: string,
 	signal: AbortSignal,
-	onEvent: (event: StreamEvent) => void
+	onEvent: (event: StreamEvent) => void,
+	attachmentIds: string[] = []
 ): Promise<void> {
 	const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/messages/stream`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
-		body: JSON.stringify({ content }),
+		body: JSON.stringify({ content, attachment_ids: attachmentIds }),
 		signal
 	});
 	if (!response.ok) throw new Error(`Chat request failed: ${response.status}`);
@@ -121,4 +122,37 @@ export async function streamMessage(
 	} finally {
 		reader.releaseLock();
 	}
+}
+
+export async function uploadAttachment(conversationId: string, file: File): Promise<{ id: string; filename: string }> {
+	const form = new FormData();
+	form.append('file', file);
+	const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/attachments`, {
+		method: 'POST', headers: csrfHeaders(), body: form
+	});
+	assertOk(response);
+	return await response.json() as { id: string; filename: string };
+}
+
+export async function continueAfterAction(
+	conversationId: string, actionId: string, signal: AbortSignal, onEvent: (event: StreamEvent) => void
+): Promise<void> {
+	const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}/actions/${encodeURIComponent(actionId)}/continue`, {
+		method: 'POST', headers: csrfHeaders(), signal
+	});
+	if (!response.ok) throw new Error(`Chat continuation failed: ${response.status}`);
+	if (!response.body) throw new Error('Chat response has no stream');
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	let remainder = '';
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			const parsed = parseSseChunk(done ? '' : decoder.decode(value, { stream: true }), remainder);
+			remainder = parsed.remainder;
+			for (const item of parsed.events) onEvent({ event: item.event, data: JSON.parse(item.data) } as StreamEvent);
+			if (done) break;
+		}
+		for (const item of parseSseChunk('\n\n', remainder).events) onEvent({ event: item.event, data: JSON.parse(item.data) } as StreamEvent);
+	} finally { reader.releaseLock(); }
 }

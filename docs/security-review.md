@@ -1,6 +1,6 @@
 # Security review
 
-Scope: the whole repository at the hardening step for the first release (issue #23), reviewed against the product boundaries in `AGENTS.md`. Date: 2026-11-23. Method: code reading, schema inspection on a migrated database, header and cookie inspection against a running stack, `pip-audit`, `npm audit`. A review at one point in time, not a penetration test; re-run it for releases that touch authentication, storage or the gateway.
+Scope: the whole repository at the hardening step for the first release (issue #23), with the admin audit/invitation database boundary reviewed for issues #62 and #63. Date: 2026-11-24. Method: code reading, schema inspection on a migrated database, header and cookie inspection against a running stack, `pip-audit`, `npm audit`. A review at one point in time, not a penetration test; re-run it for releases that touch authentication, storage or the gateway.
 
 ## Summary
 
@@ -22,7 +22,7 @@ Note on 5: `npm audit --omit=dev` reports nothing because SvelteKit is declared 
 
 ## Product boundaries
 
-1. **Multi-user.** Every table with a `user_id` column except `sessions` has `ENABLE` and `FORCE ROW LEVEL SECURITY` and at least one policy. `tests/test_security_inventory.py` fails if a new `user_id` table lacks them, if a table without `user_id` is not on the reviewed list, or if the exemption list drifts. The application role is `NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`, owns no object and cannot delete from `api_tokens`, `audit_log` or `usage_records` (also tested). Services filter by `user_id` in addition to the policy. Cross-user negative tests exist per module (tasks, files, conversations, memos, tokens, usage). Result: no finding.
+1. **Multi-user.** Every table with a `user_id` column except `sessions` has `ENABLE` and `FORCE ROW LEVEL SECURITY` and at least one policy. `tests/test_security_inventory.py` fails if a new `user_id` table lacks them, if a table without `user_id` is not on the reviewed list, or if the exemption list drifts. The application role is `NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`, owns no object and cannot delete from `api_tokens`, `audit_log` or `usage_records` (also tested). Services filter by `user_id` in addition to the policy. Cross-user negative tests exist per module (tasks, files, conversations, memos, tokens, usage), and admin database functions reject a missing, member or inactive admin context. `invitations` retains forced RLS by `created_by`; cross-admin listing/revocation uses only the reviewed functions below. Result: no finding.
 2. **One provider key.** `OPENAI_API_KEY` is read from the environment only; models come from `backend/app/ai/models.toml`. The key is not part of any API response or log line (the log formatter also scrubs `sk-` shaped values). Only `backend` and `worker` join the `egress` network. Result: no finding.
 3. **Private data stays private.** Logging was reworked: an allow-list of structured fields, route templates instead of URLs, exception type and stack locations without messages, secret scrubbing. Tests assert that prompts, search text, e-mail addresses, passwords, session cookies, provider messages and tokens do not appear. Backups are created with mode 600 and the runbook says to protect them. Result: no open finding.
 4. **Agent actions are permission-bound.** Tools are typed and registered; writes default to ask-before-write and are audited in the same transaction. MCP writes are audited with the token id. No raw SQL or command execution path from model output exists (the only subprocess is ffmpeg with fixed arguments and a temp file path). Result: no finding.
@@ -33,7 +33,7 @@ Note on 5: `npm audit --omit=dev` reports nothing because SvelteKit is declared 
 
 ## SECURITY DEFINER inventory
 
-Four functions, all in schema `public`, `SET search_path = public`, owned by the migration role, `EXECUTE` revoked from PUBLIC and granted to the application role only. The set is pinned by `test_security_definer_inventory_is_exactly_the_reviewed_set`; adding a fifth fails the test until it is reviewed and listed here.
+Seven functions, all in schema `public`, `SET search_path = public`, owned by the migration role, `EXECUTE` revoked from PUBLIC and granted to the application role only. The set is pinned by `test_security_definer_inventory_is_exactly_the_reviewed_set`; adding another fails the test until it is reviewed and listed here.
 
 | Function | Purpose | Exposure |
 | --- | --- | --- |
@@ -41,6 +41,11 @@ Four functions, all in schema `public`, `SET search_path = public`, owned by the
 | `consume_invitation(p_token_hash text, p_user_id text)` | Marks the invitation used in the registration transaction | boolean only |
 | `users_with_due_tasks(p_now timestamptz)` | Reminder worker finds users with due tasks without a user context | user ids only; the worker then continues in per-user contexts |
 | `authenticate_api_token(p_token_hash text)` | Bearer authentication for `/mcp` before any user context exists | owner id, token id and scopes of a valid token of an active user; updates `last_used_at` at most once a minute |
+| `admin_list_invitations()` | Active admins share the outstanding invitation list | invitation id and expiry only; checks the active admin against transaction-local `app.user_id`; omits used and expired invitations |
+| `admin_revoke_invitation(p_invitation_id text)` | Active admins revoke an outstanding invitation created by any admin | boolean only; checks the active admin against `app.user_id`; deletes only an unused invitation |
+| `admin_list_audit_entries(p_before_created_at timestamptz, p_before_id text, p_row_limit integer)` | Admin instance audit viewer | paginated audit metadata only; checks the active admin against `app.user_id`; never returns `details` |
+
+The admin functions are called only by the shared invitation/audit services in a transaction established with the authenticated admin's RLS context. Invitation rows continue to have `FORCE ROW LEVEL SECURITY` and the `created_by` policy; the functions do not broaden that policy or add direct cross-admin application-role table access. Audit rows retain their per-owner policy and append-only table grants. Audit instance reads expose ids, actor, action, target type/id and timestamp; arbitrary `details` JSON remains hidden. API tests cover a second admin listing and revoking another admin's invitation, while a member context gets no rows/cannot revoke; the RLS inventory also tests exact function grants and the app-role boundary.
 
 `users` and `sessions` are not row-level-secured because authentication reads them before a user context exists; the application role can select, insert and update `users` and select, insert and delete `sessions`, nothing else. `module_settings` and `instance_settings` hold instance-wide, non-personal settings.
 

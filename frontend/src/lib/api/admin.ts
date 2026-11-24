@@ -6,6 +6,8 @@ export type AdminInvitation = Pick<components['schemas']['InvitationOut'], 'id' 
 export type CreatedInvitation = AdminInvitation & { token: string };
 
 export type AdminUser = components['schemas']['AdminUserOut'];
+export type AdminUsersPage = components['schemas']['AdminUsersPage'];
+export type AdminAuditPage = components['schemas']['AdminAuditPage'];
 export type AdminUserChange = components['schemas']['AdminUserUpdate'];
 export type RegistrationSetting = components['schemas']['RegistrationOut'];
 export type RegistrationMode = RegistrationSetting['mode'];
@@ -65,10 +67,20 @@ export const revokeInvitation = async (id: string): Promise<void> => {
 	assertOk(response);
 };
 
-export const getAdminUsers = async (): Promise<AdminUser[]> => {
-	const { data, response, error } = await api.GET('/api/v1/admin/users');
+export const getAdminUsers = async (q = '', cursor?: string): Promise<AdminUsersPage> => {
+ const { data, response, error } = await api.GET('/api/v1/admin/users', {
+  params: { query: { q, limit: 50, ...(cursor ? { cursor } : {}) } }
+ });
 	assertOk(response, error);
-	return data as AdminUser[];
+ return data as AdminUsersPage;
+};
+
+export const getAdminAudit = async (cursor?: string): Promise<AdminAuditPage> => {
+ const { data, response, error } = await api.GET('/api/v1/admin/audit', {
+  params: { query: { limit: 50, ...(cursor ? { cursor } : {}) } }
+ });
+ assertOk(response, error);
+ return data as AdminAuditPage;
 };
 
 export const updateAdminUser = async (id: string, change: AdminUserChange): Promise<AdminUser> => {

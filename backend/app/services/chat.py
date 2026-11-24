@@ -24,6 +24,7 @@ from app.services import (
     agent_actions,
     agent_settings,
     agent_tools,
+    chat_attachments,
     conversations,
     memories,
     module_settings,
@@ -47,6 +48,12 @@ class UserMessageStored:
     conversation_id: str
     content: str
     created_at: datetime
+    attachments: list[dict]
+
+
+@dataclass(frozen=True)
+class ContextReady:
+    """Internal continuation marker with no browser-visible message."""
 
 
 @dataclass(frozen=True)
@@ -84,7 +91,9 @@ class ActionProposed:
     status: str = "pending"
 
 
-type ChatStreamEvent = UserMessageStored | Delta | ToolStatus | SourcesFound | ActionProposed | Done | Error
+type ChatStreamEvent = (
+    UserMessageStored | ContextReady | Delta | ToolStatus | SourcesFound | ActionProposed | Done | Error
+)
 
 
 def build_history(messages: list[Message]) -> list[ChatMessage]:
@@ -126,6 +135,8 @@ async def run_chat_turn(
     embedder: EmbeddingProvider | None = None,
     web_search: WebSearchProvider | None = None,
     storage: Storage | None = None,
+    attachment_ids: list[str] | None = None,
+    decision_notice: str | None = None,
 ) -> AsyncIterator[ChatStreamEvent]:
     current_time = now or datetime.now(UTC)
     normalized_title = " ".join(user_text.split())[:60]
@@ -134,11 +145,17 @@ async def run_chat_turn(
         conversation = await conversations.get_conversation(session, user, conversation_id)
         if conversation is None:
             raise NotFound
-        stored = await conversations.add_message(
+        stored = None if decision_notice else await conversations.add_message(
             session, user, conversation_id, "user", user_text
         )
-        assert stored is not None
-        if conversation.title == conversations.DEFAULT_TITLE:
+        attachment_context, image_data_urls, attachment_sources = (user_text, [], [])
+        if attachment_ids and stored is not None:
+            if storage is None:
+                raise chat_attachments.AttachmentError("ATTACHMENTS_UNAVAILABLE")
+            attachment_context, image_data_urls, attachment_sources = await chat_attachments.bind_and_load(
+                session, storage, user, conversation_id, stored, attachment_ids
+            )
+        if not decision_notice and conversation.title == conversations.DEFAULT_TITLE:
             conversation.title = normalized_title or conversations.DEFAULT_TITLE
         conversation.updated_at = current_time
         await session.flush()
@@ -147,7 +164,8 @@ async def run_chat_turn(
             conversation_id=stored.conversation_id,
             content=stored.content,
             created_at=stored.created_at,
-        )
+            attachments=attachment_sources,
+        ) if stored is not None else ContextReady()
 
     yield user_message
 
@@ -169,11 +187,18 @@ async def run_chat_turn(
         )
     system = build_system_prompt(remembered)
     history = build_history(rows)
+    if decision_notice:
+        history.append(ChatMessage(role="system", content=f"<action_outcome>{decision_notice}</action_outcome>"))
+    if history and history[-1].role == "user":
+        latest = history[-1]
+        history[-1] = ChatMessage(
+            role=latest.role, content=attachment_context, image_data_urls=image_data_urls or None
+        )
     specs = [tool.spec() for tool in tools]
     by_name = {tool.name: tool for tool in tools}
 
     answer: list[str] = []
-    sources: list[dict] = []
+    sources: list[dict] = attachment_sources
     tool_log: list[dict] = []
     proposals: list[tuple[agent_tools.Tool, dict]] = []
     input_tokens = output_tokens = 0
