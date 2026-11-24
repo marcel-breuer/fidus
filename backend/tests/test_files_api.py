@@ -108,6 +108,23 @@ async def test_upload_versions_validation_download_and_subtree_delete(client: ht
     assert (await client.get(f"/api/v1/files/nodes/{node_id}/versions")).status_code == 404
 
 
+async def test_create_and_update_text_file_rest_operations(client: httpx.AsyncClient) -> None:
+    await _register_login(client, "files-text-api@example.com")
+    folder = (await client.post("/api/v1/files/folders", json={"name": "Drafts"})).json()
+    created = await client.post("/api/v1/files/text", json={
+        "name": "draft.md", "parent_id": folder["id"], "content": "first version"
+    })
+    assert created.status_code == 201
+    assert created.json()["name"] == "draft.md" and created.json()["version"] == 1
+    updated = await client.put(
+        f"/api/v1/files/nodes/{created.json()['id']}/text", json={"content": "second version"}
+    )
+    assert updated.status_code == 200 and updated.json()["version"] == 2
+    download = await client.get(f"/api/v1/files/nodes/{created.json()['id']}/download")
+    assert download.content == b"second version"
+    assert (await client.post("/api/v1/files/text", json={"name": "draft.pdf", "content": "x"})).status_code == 415
+
+
 async def test_move_cycle_into_file_and_cross_user_routes(client: httpx.AsyncClient) -> None:
     await _register_login(client, "files-owner@example.com")
     root = (await client.post("/api/v1/files/folders", json={"name": "Root"})).json()

@@ -4,7 +4,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +47,20 @@ class VersionOut(BaseModel):
 class FolderCreate(BaseModel):
     name: str
     parent_id: str | None = None
+
+
+class TextFileCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    content: str = Field(max_length=service.MAX_UPLOAD_BYTES)
+    parent_id: str | None = None
+
+
+class TextFileUpdate(BaseModel):
+    content: str = Field(max_length=service.MAX_UPLOAD_BYTES)
+
+
+class TextFileOut(NodeOut):
+    version: int
 
 
 class NodeUpdate(BaseModel):
@@ -95,6 +109,7 @@ def _error(exc: FilesError) -> HTTPException:
         "INVALID_NAME": 422,
         "UNSUPPORTED_TYPE": 415,
         "PARENT_NOT_FOUND": 404,
+        "NODE_NOT_FOUND": 404,
         "NAME_CONFLICT": 409,
         "MOVE_CYCLE": 422,
     }.get(exc.code, 400)
@@ -128,6 +143,54 @@ async def post_folder(
         return _node(await service.create_folder(session, user, body.name, body.parent_id))
     except FilesError as exc:
         raise _error(exc) from exc
+
+
+def _text_file(node: Node, version: FileVersion) -> TextFileOut:
+    return TextFileOut(
+        id=node.id,
+        parent_id=node.parent_id,
+        kind=node.kind,
+        name=node.name,
+        created_at=node.created_at,
+        updated_at=node.updated_at,
+        size_bytes=version.size_bytes,
+        version=version.version,
+    )
+
+
+@router.post("/files/text", response_model=TextFileOut, status_code=201)
+async def post_text_file(
+    body: TextFileCreate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
+) -> TextFileOut:
+    try:
+        node, version = await service.create_text_file(
+            session, storage, user, body.parent_id, body.name, body.content
+        )
+    except StorageTooLarge as exc:
+        raise HTTPException(status_code=413, detail="FILE_TOO_LARGE") from exc
+    except FilesError as exc:
+        raise _error(exc) from exc
+    return _text_file(node, version)
+
+
+@router.put("/files/nodes/{node_id}/text", response_model=TextFileOut)
+async def put_text_file(
+    node_id: str,
+    body: TextFileUpdate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
+) -> TextFileOut:
+    try:
+        node, version = await service.update_text_file(session, storage, user, node_id, body.content)
+    except StorageTooLarge as exc:
+        raise HTTPException(status_code=413, detail="FILE_TOO_LARGE") from exc
+    except FilesError as exc:
+        raise _error(exc) from exc
+    return _text_file(node, version)
 
 
 @router.post("/files/upload", response_model=NodeOut, status_code=201)

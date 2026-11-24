@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.ai.fakes import KeywordEmbeddingProvider
 from app.config import get_settings
-from app.db.models import Document, Task, User
+from app.db.models import AuditLog, Document, Memo, Task, User
 from app.db.session import system_session, user_session
 from app.main import create_app
 from app.mcp.protocol import SUPPORTED_PROTOCOL_VERSIONS
@@ -151,7 +151,7 @@ async def test_failed_attempts_and_token_requests_are_rate_limited(
 # --- protocol -------------------------------------------------------------------------------
 
 
-async def test_initialize_negotiates_version_and_declares_tools_only(client: httpx.AsyncClient) -> None:
+async def test_initialize_negotiates_version_and_declares_tools_and_resources(client: httpx.AsyncClient) -> None:
     _, token = await _signup(client, "mcp-init@example.com")
     for requested in SUPPORTED_PROTOCOL_VERSIONS:
         result = (await rpc(client, token, "initialize", {"protocolVersion": requested, "capabilities": {}})).json()
@@ -159,7 +159,7 @@ async def test_initialize_negotiates_version_and_declares_tools_only(client: htt
         assert result["result"]["protocolVersion"] == requested
     result = (await rpc(client, token, "initialize", {"protocolVersion": "1999-01-01"})).json()["result"]
     assert result["protocolVersion"] == SUPPORTED_PROTOCOL_VERSIONS[0]
-    assert result["capabilities"] == {"tools": {"listChanged": False}}
+    assert result["capabilities"] == {"tools": {"listChanged": False}, "resources": {"listChanged": False}}
     assert result["serverInfo"]["name"] == "fidus"
 
 
@@ -186,8 +186,8 @@ async def test_malformed_requests_and_unsupported_methods(client: httpx.AsyncCli
     assert batch.status_code == 400 and batch.json()["error"]["code"] == -32600
     invalid = await client.post("/mcp", json={"id": 1, "method": "ping"}, headers=headers)
     assert invalid.json()["error"]["code"] == -32600
-    unknown = await rpc(client, token, "resources/list")
-    assert unknown.json()["error"]["code"] == -32601
+    listed_resources = await rpc(client, token, "resources/list")
+    assert listed_resources.json()["result"] == {"resources": []}
     bad_version = await client.post(
         "/mcp",
         json={"jsonrpc": "2.0", "id": 1, "method": "ping"},
@@ -223,6 +223,16 @@ async def test_tools_list_is_filtered_by_token_scopes(client: httpx.AsyncClient)
     assert [tool["name"] for tool in tools] == ["list_tasks", "search_knowledge"]
     assert all(tool["inputSchema"]["type"] == "object" for tool in tools)
     assert tools[0]["annotations"]["readOnlyHint"] is True
+
+
+async def test_file_tools_are_filtered_by_write_scope(client: httpx.AsyncClient) -> None:
+    _, token = await _signup(client, "mcp-file-scope@example.com", ["files:write"])
+    tools = (await rpc(client, token, "tools/list")).json()["result"]["tools"]
+    assert [tool["name"] for tool in tools] == ["create_file", "update_file"]
+    assert all(tool["annotations"]["readOnlyHint"] is False for tool in tools)
+    assert (await rpc(client, token, "resources/list")).json()["result"]["resources"] == []
+    denied_read = (await rpc(client, token, "resources/read", {"uri": "fidus://files/01HAAAAAAAAAAAAAAAAAAAAAAAA"})).json()
+    assert denied_read["error"]["code"] == -32001
 
 
 async def test_scope_denial_blocks_the_call_without_side_effects(client: httpx.AsyncClient) -> None:
@@ -341,6 +351,119 @@ async def test_knowledge_search_tool_returns_citations(client: httpx.AsyncClient
     await _login_again(client, "mcp-knowledge@example.com")
     rest = (await client.get("/api/v1/knowledge/search", params={"q": "emerald forecast", "limit": 3})).json()
     assert rest["results"] == hits
+
+
+async def test_file_tools_create_update_and_audit_with_token_id(client: httpx.AsyncClient) -> None:
+    user_id = await _login(client, "mcp-file-write@example.com")
+    created_token = (await client.post("/api/v1/tokens", json={
+        "name": "files", "scopes": ["files:write"]
+    })).json()
+    client.cookies.clear()
+
+    created = await call(client, created_token["token"], "create_file", {
+        "name": "draft.md", "content": "first version"
+    })
+    assert created["result"]["isError"] is False
+    file = created["result"]["structuredContent"]
+    assert file["name"] == "draft.md" and file["version"] == 1 and file["size_bytes"] == 13
+    updated = await call(client, created_token["token"], "update_file", {
+        "node_id": file["id"], "content": "second version"
+    })
+    assert updated["result"]["structuredContent"]["version"] == 2
+
+    await _login_again(client, "mcp-file-write@example.com")
+    rest = await client.put(f"/api/v1/files/nodes/{file['id']}/text", json={"content": "third version"})
+    assert rest.status_code == 200 and rest.json()["version"] == 3
+    async with user_session(user_id) as session:
+        writes = list((await session.scalars(select(AuditLog).where(AuditLog.actor == "mcp"))).all())
+    assert [(row.action, row.target_type, row.target_id, row.details) for row in writes] == [
+        ("mcp.create_file", "file", file["id"], {"token_id": created_token["id"]}),
+        ("mcp.update_file", "file", file["id"], {"token_id": created_token["id"]}),
+    ]
+
+
+async def test_resources_list_and_read_files_and_memos_are_user_scoped(client: httpx.AsyncClient) -> None:
+    user_id = await _login(client, "mcp-resources-owner@example.com")
+    owner_token = (await client.post("/api/v1/tokens", json={
+        "name": "resources", "scopes": ["files:read", "audio:read"]
+    })).json()["token"]
+    uploaded = await client.post(
+        "/api/v1/files/upload", files={"file": ("resource.txt", b"private file transcript", "text/plain")}
+    )
+    assert uploaded.status_code == 201
+    async with user_session(user_id) as session:
+        document = Document(
+            user_id=user_id, source="memo", title="Meeting", content="private memo transcript", status="ready"
+        )
+        session.add(document)
+        await session.flush()
+        memo = Memo(
+            user_id=user_id, title="Meeting", status="ready", audio_key=f"{user_id}/memo-audio",
+            mime_type="audio/wav", size_bytes=1, document_id=document.id,
+        )
+        session.add(memo)
+        await session.flush()
+        memo_id = memo.id
+    client.cookies.clear()
+
+    resources = (await rpc(client, owner_token, "resources/list")).json()["result"]["resources"]
+    assert {resource["uri"] for resource in resources} == {
+        f"fidus://files/{uploaded.json()['id']}", f"fidus://memos/{memo_id}"
+    }
+    file_read = (await rpc(client, owner_token, "resources/read", {
+        "uri": f"fidus://files/{uploaded.json()['id']}"
+    })).json()
+    assert file_read["result"]["contents"][0]["text"] == "private file transcript"
+    memo_read = (await rpc(client, owner_token, "resources/read", {"uri": f"fidus://memos/{memo_id}"})).json()
+    assert memo_read["result"]["contents"][0]["text"] == "private memo transcript"
+
+    _, other_token = await _signup(client, "mcp-resources-other@example.com", ["files:read", "audio:read"])
+    assert (await rpc(client, other_token, "resources/list")).json()["result"]["resources"] == []
+    for uri in (f"fidus://files/{uploaded.json()['id']}", f"fidus://memos/{memo_id}"):
+        denied = (await rpc(client, other_token, "resources/read", {"uri": uri})).json()
+        assert denied["error"]["code"] == -32004
+
+
+async def test_rest_text_file_operations_and_mcp_resources_enforce_owner_and_scope(
+    client: httpx.AsyncClient,
+) -> None:
+    await _login(client, "mcp-file-owner@example.com")
+    folder = (await client.post("/api/v1/files/folders", json={"name": "Owner folder"})).json()
+    owner_token = (await client.post("/api/v1/tokens", json={
+        "name": "owner", "scopes": ["files:read", "files:write"]
+    })).json()["token"]
+    file = (await call(client, owner_token, "create_file", {
+        "name": "owned.txt", "content": "private", "folder_id": folder["id"]
+    }))[
+        "result"]["structuredContent"]
+    await _login_again(client, "mcp-file-owner@example.com")
+    await client.post("/api/v1/auth/logout")
+    client.headers.pop("X-CSRF-Token", None)
+    await _login(client, "mcp-file-other@example.com")
+    assert (await client.post("/api/v1/files/text", json={
+        "name": "leak.md", "content": "no", "parent_id": folder["id"]
+    })).status_code == 404
+    assert (await client.put(f"/api/v1/files/nodes/{file['id']}/text", json={"content": "changed"})).status_code == 404
+    write_token = (await client.post("/api/v1/tokens", json={
+        "name": "write", "scopes": ["files:write"]
+    })).json()["token"]
+    client.cookies.clear()
+    foreign_create = (await rpc(client, write_token, "tools/call", {
+        "name": "create_file", "arguments": {
+            "name": "leak.md", "content": "changed", "folder_id": folder["id"]
+        }
+    })).json()
+    assert foreign_create["result"]["isError"] is True
+    assert foreign_create["result"]["content"][0]["text"] == "PARENT_NOT_FOUND"
+    foreign_update = (await rpc(client, write_token, "tools/call", {
+        "name": "update_file", "arguments": {"node_id": file["id"], "content": "changed"}
+    })).json()
+    assert foreign_update["result"]["isError"] is True
+    assert foreign_update["result"]["content"][0]["text"] == "NODE_NOT_FOUND"
+    unknown = (await rpc(client, write_token, "resources/read", {
+        "uri": f"fidus://files/{file['id']}"
+    })).json()
+    assert unknown["error"]["code"] == -32001
 
 
 async def test_knowledge_search_reports_missing_ai_configuration_as_tool_error(

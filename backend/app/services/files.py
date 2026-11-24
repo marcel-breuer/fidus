@@ -362,3 +362,44 @@ async def get_download(
     if row is None:
         return None
     return Download(row, storage.open(row.storage_key))
+
+
+async def list_all_files(session: AsyncSession, user: User) -> list[Node]:
+    """List every live file for resource adapters, including files in nested folders."""
+    return list(
+        (
+            await session.scalars(
+                select(Node)
+                .where(Node.user_id == user.id, Node.kind == "file", Node.deleted_at.is_(None))
+                .order_by(Node.name.collate("C"), Node.id)
+            )
+        ).all()
+    )
+
+
+async def read_text_content(
+    session: AsyncSession, storage: Storage, user: User, node_id: str
+) -> tuple[Node, str] | None:
+    """Return extracted text, falling back to the current raw blob for plain-text files."""
+    node = await session.scalar(
+        select(Node).where(
+            Node.id == node_id, Node.user_id == user.id, Node.kind == "file", Node.deleted_at.is_(None)
+        )
+    )
+    if node is None:
+        return None
+    from app.services.indexing import latest_document
+
+    document = await latest_document(session, user, node.id)
+    if document is not None and document.content is not None:
+        return node, document.content
+    if _text_extension(node.name) not in TEXT_EXTENSIONS:
+        raise FilesError("CONTENT_NOT_READY")
+    download = await get_download(session, storage, user, node.id)
+    if download is None:
+        return None
+    try:
+        content = b"".join([chunk async for chunk in download.stream]).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise FilesError("CONTENT_UNAVAILABLE") from exc
+    return node, content
