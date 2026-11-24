@@ -109,6 +109,8 @@ async def recover_stuck_memos(now: datetime, timeout_seconds: int) -> int:
                 if memo.status == "transcribing":
                     memo.status = "pending"
                     memo.error_code = None
+                # Restart the timeout so a memo is requeued at most once per timeout window.
+                memo.updated_at = now
                 recovered.append((user_id, memo.id))
     for user_id, memo_id in recovered:
         await enqueue_memo(user_id, memo_id)
