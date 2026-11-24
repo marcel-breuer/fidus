@@ -6,7 +6,11 @@ import pytest_asyncio
 from fastapi import Depends, FastAPI
 
 from app.auth.rate_limit import enforce_auth_rate_limit, get_redis
+from app.db.models import User
+from app.db.session import user_session
+from app.services import conversations
 from tests.conftest import FakeClock, InMemoryRateLimitStore
+from tests.helpers import PASSWORD, register
 
 
 @pytest_asyncio.fixture
@@ -178,3 +182,106 @@ async def test_real_login_and_register_routes_are_rate_limited(client: httpx.Asy
         headers={"X-Real-IP": "203.0.113.9"},
     )
     assert limited.status_code == 429
+
+
+async def test_paid_operations_have_isolated_per_user_limits(
+    client: httpx.AsyncClient, settings, memory_storage
+) -> None:  # type: ignore[no-untyped-def]
+    settings.chat_rate_limit_requests = 1
+    settings.file_upload_rate_limit_requests = 1
+    settings.transcription_rate_limit_requests = 1
+    settings.chat_rate_limit_window_seconds = 60
+    settings.file_upload_rate_limit_window_seconds = 60
+    settings.transcription_rate_limit_window_seconds = 60
+    alice = (await register(client, "limit-alice@example.com")).json()
+    bob = (await register(client, "limit-bob@example.com")).json()
+
+    async def login(email: str) -> None:
+        response = await client.post(
+            "/api/v1/auth/login", data={"username": email, "password": PASSWORD}
+        )
+        assert response.status_code == 204
+        client.headers["X-CSRF-Token"] = client.cookies.get("fidus_csrf") or ""
+
+    async def create_conversation(user_id: str) -> str:
+        async with user_session(user_id) as session:
+            user = await session.get(User, user_id)
+            assert user is not None
+            return (await conversations.create_conversation(session, user, None)).id
+
+    await login("limit-alice@example.com")
+    alice_conversation = await create_conversation(alice["id"])
+    chat_path = f"/api/v1/conversations/{alice_conversation}/messages/stream"
+    assert (await client.post(chat_path, json={"content": "hello"})).status_code == 200
+    limited_chat = await client.post(chat_path, json={"content": "again"})
+    assert limited_chat.status_code == 429
+    assert limited_chat.headers["retry-after"] == "60"
+
+    assert (
+        await client.post(
+            "/api/v1/files/upload", files={"file": ("note.txt", b"safe text", "text/plain")}
+        )
+    ).status_code == 201
+    limited_upload = await client.post(
+        "/api/v1/files/upload", files={"file": ("another.txt", b"safe", "text/plain")}
+    )
+    assert limited_upload.status_code == 429
+    assert limited_upload.headers["retry-after"] == "60"
+
+    audio_data = b"\x1a\x45\xdf\xa3" + b"\x00" * 64
+    assert (
+        await client.post(
+            "/api/v1/audio/memos",
+            files={"file": ("note.webm", audio_data, "audio/webm")},
+        )
+    ).status_code == 201
+    limited_transcription = await client.post(
+        "/api/v1/audio/memos",
+        files={"file": ("another.webm", audio_data, "audio/webm")},
+    )
+    assert limited_transcription.status_code == 429
+    assert limited_transcription.headers["retry-after"] == "60"
+
+    await login("limit-bob@example.com")
+    bob_conversation = await create_conversation(bob["id"])
+    assert (
+        await client.post(
+            f"/api/v1/conversations/{bob_conversation}/messages/stream",
+            json={"content": "hello"},
+        )
+    ).status_code == 200
+    assert (
+        await client.post(
+            "/api/v1/files/upload", files={"file": ("note.txt", b"safe", "text/plain")}
+        )
+    ).status_code == 201
+    assert (
+        await client.post(
+            "/api/v1/audio/memos",
+            files={"file": ("note.webm", audio_data, "audio/webm")},
+        )
+    ).status_code == 201
+
+
+async def test_attachment_uploads_share_the_upload_limit(
+    client: httpx.AsyncClient, settings, memory_storage
+) -> None:  # type: ignore[no-untyped-def]
+    settings.file_upload_rate_limit_requests = 1
+    settings.file_upload_rate_limit_window_seconds = 60
+    user = (await register(client, "limit-attach@example.com")).json()
+    response = await client.post(
+        "/api/v1/auth/login", data={"username": "limit-attach@example.com", "password": PASSWORD}
+    )
+    assert response.status_code == 204
+    client.headers["X-CSRF-Token"] = client.cookies.get("fidus_csrf") or ""
+    async with user_session(user["id"]) as session:
+        owner = await session.get(User, user["id"])
+        assert owner is not None
+        conversation_id = (await conversations.create_conversation(session, owner, None)).id
+    path = f"/api/v1/conversations/{conversation_id}/attachments"
+    assert (
+        await client.post(path, files={"file": ("a.txt", b"first", "text/plain")})
+    ).status_code == 201
+    limited = await client.post(path, files={"file": ("b.txt", b"second", "text/plain")})
+    assert limited.status_code == 429
+    assert limited.headers["retry-after"] == "60"

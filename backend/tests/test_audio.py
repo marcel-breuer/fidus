@@ -3,6 +3,7 @@ import io
 import shutil
 import subprocess
 import wave
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import httpx
@@ -383,3 +384,65 @@ async def test_openai_speech_provider_collects_pcm_into_wav() -> None:
     assert names == ["session", "item", "response"]
     assert sent[0][1]["session"]["output_modalities"] == ["audio"]
     assert sent[1][1]["item"]["content"][0]["text"] == "Hi"
+
+
+async def test_stale_transcriptions_are_requeued_once_and_only_for_owner(
+    client: httpx.AsyncClient, memory_storage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.worker.tasks import recover_stuck_memos
+
+    alice_id = await _login(client, "stale-alice@example.com")
+    alice_memo = await _upload(client)
+    await _login(client, "stale-bob@example.com")
+    bob_id = await client.get("/api/v1/users/me")
+    bob_memo = await _upload(client, "fresh.webm")
+    assert bob_id.status_code == 200
+
+    old = datetime.now(UTC) - timedelta(hours=1)
+    async with user_session(alice_id) as session:
+        memo = await session.get(Memo, alice_memo["id"])
+        assert memo is not None
+        memo.status = "transcribing"
+        memo.updated_at = old
+    async with user_session(bob_id.json()["id"]) as session:
+        memo = await session.get(Memo, bob_memo["id"])
+        assert memo is not None
+        memo.status = "transcribing"
+
+    queued: list[tuple[str, str]] = []
+
+    async def record_enqueue(user_id: str, memo_id: str) -> None:
+        queued.append((user_id, memo_id))
+
+    monkeypatch.setattr("app.worker.tasks.enqueue_memo", record_enqueue)
+    now = datetime.now(UTC)
+    assert await recover_stuck_memos(now, 600) == 1
+    assert queued == [(alice_id, alice_memo["id"])]
+    async with user_session(alice_id) as session:
+        recovered = await session.get(Memo, alice_memo["id"])
+        assert recovered is not None and recovered.status == "pending"
+        recovered.updated_at = old
+    assert await recover_stuck_memos(now, 600) == 1
+    assert queued == [(alice_id, alice_memo["id"]), (alice_id, alice_memo["id"])]
+    assert await recover_stuck_memos(now, 600) == 0
+    async with user_session(alice_id) as session:
+        recovered = await session.get(Memo, alice_memo["id"])
+        assert recovered is not None and recovered.status == "pending"
+    async with user_session(bob_id.json()["id"]) as session:
+        untouched = await session.get(Memo, bob_memo["id"])
+        assert untouched is not None and untouched.status == "transcribing"
+
+
+async def test_duplicate_transcription_job_does_not_transcribe_again(
+    client: httpx.AsyncClient, memory_storage
+) -> None:
+    user_id = await _login(client, "duplicate-job@example.com")
+    memo = await _upload(client)
+    async with user_session(user_id) as session:
+        row = await session.get(Memo, memo["id"])
+        assert row is not None
+        row.status = "transcribing"
+    transcriber = FakeTranscriptionProvider(["must not run"])
+    await process_memo(user_id, memo["id"], memory_storage, transcriber, FakeEmbeddingProvider(), _fake_segments)
+    assert transcriber.calls == []
+    assert (await client.get(f"/api/v1/audio/memos/{memo['id']}")).json()["status"] == "transcribing"

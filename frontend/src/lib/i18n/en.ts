@@ -2,6 +2,7 @@ export const en = {
 	'app.name': 'Fidus',
 	'common.loading': 'Loading…',
 	'common.error': 'Something went wrong. Please try again.',
+	'common.rateLimited': 'You have reached the request limit. Please wait before trying again.',
 	'common.retry': 'Try again',
 	'nav.primary': 'Main navigation',
 	'nav.admin': 'Administration',

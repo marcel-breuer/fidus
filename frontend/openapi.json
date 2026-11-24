@@ -2967,6 +2967,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Per-user transcription limit exceeded"
           }
         },
         "security": [
@@ -3969,6 +3972,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Per-user chat request limit exceeded"
           }
         },
         "security": [
@@ -4523,6 +4529,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Per-user file upload limit exceeded"
           }
         },
         "security": [

@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fastapi import HTTPException
@@ -9,8 +9,9 @@ from sqlalchemy import func, select, text
 from app.ai.deps import get_embedding_provider
 from app.ai.providers import EmbeddingProvider
 from app.config import get_settings
-from app.db.models import Task, User
+from app.db.models import Memo, Task, User
 from app.db.session import get_sessionmaker, system_session, user_session
+from app.services.audio import enqueue_memo
 from app.services.indexing import index_document, mark_document_failed
 from app.services.reminders import materialize_due_reminders
 from app.services.sessions import purge_expired_sessions
@@ -74,6 +75,52 @@ async def purge_expired_auth_sessions() -> int:
     """Remove expired sessions once per day at 03:15 UTC."""
     async with get_sessionmaker()() as session, session.begin():
         return await purge_expired_sessions(session)
+
+
+async def recover_stuck_memos(now: datetime, timeout_seconds: int) -> int:
+    """Return stale transcription claims to pending and enqueue them once."""
+    from app.worker.module_guard import ensure_module_enabled
+
+    try:
+        await ensure_module_enabled("audio")
+    except RuntimeError as exc:
+        if str(exc) == "MODULE_DISABLED":
+            return 0
+        raise
+
+    async with system_session() as session:
+        user_ids = list(await session.scalars(select(User.id)))
+    cutoff = now - timedelta(seconds=timeout_seconds)
+    recovered: list[tuple[str, str]] = []
+    for user_id in user_ids:
+        async with user_session(user_id) as session:
+            memos = list(
+                await session.scalars(
+                    select(Memo)
+                    .where(
+                        Memo.status.in_(("pending", "transcribing")),
+                        Memo.updated_at < cutoff,
+                    )
+                    .order_by(Memo.updated_at, Memo.id)
+                    .with_for_update(skip_locked=True)
+                )
+            )
+            for memo in memos:
+                if memo.status == "transcribing":
+                    memo.status = "pending"
+                    memo.error_code = None
+                # Restart the timeout so a memo is requeued at most once per timeout window.
+                memo.updated_at = now
+                recovered.append((user_id, memo.id))
+    for user_id, memo_id in recovered:
+        await enqueue_memo(user_id, memo_id)
+    return len(recovered)
+
+
+@broker.task(task_name="audio.recover_stuck_memos", schedule=[{"cron": "*/5 * * * *"}])
+async def recover_stuck_memo_jobs() -> int:
+    settings = get_settings()
+    return await recover_stuck_memos(datetime.now(UTC), settings.memo_transcription_timeout_seconds)
 
 
 async def process_due_reminders(redis: RedisPublisher, now: datetime) -> dict[str, list[str]]:

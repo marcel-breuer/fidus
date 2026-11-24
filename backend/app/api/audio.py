@@ -10,6 +10,7 @@ from app.ai.deps import get_speech_provider
 from app.ai.providers import SpeechProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
+from app.auth.rate_limit import enforce_user_rate_limit
 from app.db.models import Document, Memo, User
 from app.modules.guard import require_module
 from app.services import audio as service
@@ -82,7 +83,13 @@ async def get_memos(
     return [_out(memo, document) for memo, document in await service.list_memos(session, user)]
 
 
-@router.post("/audio/memos", response_model=MemoOut, status_code=201)
+@router.post(
+    "/audio/memos",
+    response_model=MemoOut,
+    status_code=201,
+    responses={429: {"description": "Per-user transcription limit exceeded"}},
+    dependencies=[Depends(enforce_user_rate_limit("transcription"))],
+)
 async def post_memo(
     file: UploadFile = File(...),
     title: str | None = Form(default=None),

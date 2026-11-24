@@ -14,6 +14,8 @@ cd fidus
 ```
 `start.sh` checks Docker, creates `.env` with fresh secrets, builds and starts the stack, then prints the address (default `http://localhost:8080`). The first account you register becomes the admin. `REGISTRATION_MODE` (`open`, `invite-only`, `closed`) is the default for registration afterwards; admins can change the mode at runtime in `/admin`. Set `OPENAI_API_KEY` in `.env` to enable chat and file embeddings.
 
+Redis enforces configurable per-user request limits for chat (`CHAT_RATE_LIMIT_*`), file uploads (`FILE_UPLOAD_RATE_LIMIT_*`) and audio transcription uploads (`TRANSCRIPTION_RATE_LIMIT_*`). Requests above a limit return HTTP 429 with `Retry-After`; limits fail open if Redis is unavailable. The scheduler retries memos left pending or transcribing longer than `MEMO_TRANSCRIPTION_TIMEOUT_SECONDS` (default 30 minutes).
+
 ### Behind a reverse proxy
 Set `TRUSTED_PROXIES` in `.env` to the comma-separated IPs or CIDRs of the proxy hops that connect to the gateway. Leave it empty when the gateway is directly exposed. The gateway resolves forwarded client addresses only through those trusted proxies.
 

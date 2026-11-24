@@ -21,7 +21,7 @@ async def get_redis(request: Request) -> Redis:
 
 def rate_limit_key(scope: str, identifier: str, settings: Settings) -> str:
     digest = hashlib.sha256(f"{settings.secret_key}:{identifier}".encode()).hexdigest()
-    return f"fidus:auth-rate-limit:{scope}:{digest}"
+    return f"fidus:rate-limit:{scope}:{digest}"
 
 
 
@@ -97,3 +97,35 @@ async def enforce_auth_rate_limit(
             detail="RATE_LIMITED",
             headers={"Retry-After": str(retry_after)},
         )
+
+
+def enforce_user_rate_limit(scope: str):
+    """Build a per-user API dependency backed by the shared Redis window counter."""
+    from app.auth.manager import current_active_user
+    from app.db.models import User
+
+    async def enforce(
+        user: User = Depends(current_active_user),
+        store: Redis = Depends(get_redis),
+    ) -> None:
+        settings = get_settings()
+        requests_limit = getattr(settings, f"{scope}_rate_limit_requests")
+        window_seconds = getattr(settings, f"{scope}_rate_limit_window_seconds")
+        try:
+            retry_after = await consume_window(
+                store,
+                rate_limit_key(f"user-{scope}", user.id, settings),
+                requests_limit,
+                window_seconds,
+            )
+        except Exception:
+            logger.warning("User rate-limit storage unavailable; allowing request", extra={"scope": scope})
+            return
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=429,
+                detail="RATE_LIMITED",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+    return enforce

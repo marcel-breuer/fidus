@@ -11,6 +11,7 @@ from app.ai.deps import get_chat_provider, get_embedding_provider, get_web_searc
 from app.ai.providers import ChatProvider, EmbeddingProvider, WebSearchProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
+from app.auth.rate_limit import enforce_user_rate_limit
 from app.db.models import Conversation, Message, MessageAttachment, User
 from app.modules.guard import require_module
 from app.services import chat as chat_service
@@ -149,7 +150,11 @@ async def _chat_events(
         await events.aclose()
 
 
-@router.post("/conversations/{conversation_id}/messages/stream")
+@router.post(
+    "/conversations/{conversation_id}/messages/stream",
+    responses={429: {"description": "Per-user chat request limit exceeded"}},
+    dependencies=[Depends(enforce_user_rate_limit("chat"))],
+)
 async def stream_message(
     conversation_id: str,
     body: ChatMessageCreate,
@@ -181,7 +186,10 @@ async def stream_message(
     )
 
 
-@router.post("/conversations/{conversation_id}/actions/{action_id}/continue")
+@router.post(
+    "/conversations/{conversation_id}/actions/{action_id}/continue",
+    dependencies=[Depends(enforce_user_rate_limit("chat"))],
+)
 async def continue_after_action(
     conversation_id: str,
     action_id: str,
@@ -215,7 +223,12 @@ async def continue_after_action(
     )
 
 
-@router.post("/conversations/{conversation_id}/attachments", response_model=AttachmentOut, status_code=201)
+@router.post(
+    "/conversations/{conversation_id}/attachments",
+    response_model=AttachmentOut,
+    status_code=201,
+    dependencies=[Depends(enforce_user_rate_limit("file_upload"))],
+)
 async def upload_attachment(
     conversation_id: str,
     file: UploadFile = File(...),
