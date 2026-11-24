@@ -4,6 +4,7 @@
 	import {
 		buildInviteLink,
 		createInvitation,
+		getAdminAudit,
 		getAdminModules,
 		getAdminUsers,
 		getInvitations,
@@ -32,6 +33,10 @@
 	let created = $state<CreatedInvitation | null>(null);
 	let expiresInDays = $state('7');
 	let users = $state<AdminUser[]>([]);
+	let userQuery = $state('');
+	let userCursor = $state<string | null>(null);
+	let auditEntries = $state<import('$lib/api/admin').AdminAuditPage['items']>([]);
+	let auditCursor = $state<string | null>(null);
 	let registration = $state<RegistrationSetting | null>(null);
 	let registrationSaved = $state(false);
 	let userError = $state<MessageKey | ''>('');
@@ -47,16 +52,68 @@
 		loading = true;
 		errorMessage = false;
 		try {
-			[modules, invitations, users, registration] = await Promise.all([
+			const [loadedModules, loadedInvitations, loadedUsers, loadedRegistration, loadedAudit] = await Promise.all([
 				getAdminModules(),
 				getInvitations(),
-				getAdminUsers(),
-				getRegistration()
+				getAdminUsers(userQuery),
+				getRegistration(),
+				getAdminAudit()
 			]);
+			modules = loadedModules;
+			invitations = loadedInvitations;
+			users = loadedUsers.items;
+			userCursor = loadedUsers.next_cursor;
+			registration = loadedRegistration;
+			auditEntries = loadedAudit.items;
+			auditCursor = loadedAudit.next_cursor;
 		} catch {
 			errorMessage = true;
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function searchUsers(event?: SubmitEvent) {
+		event?.preventDefault();
+		busyKey = 'users';
+		userError = '';
+		try {
+			const result = await getAdminUsers(userQuery.trim());
+			users = result.items;
+			userCursor = result.next_cursor;
+		} catch {
+			userError = 'common.error';
+		} finally {
+			busyKey = '';
+		}
+	}
+
+	async function nextUsers() {
+		if (!userCursor) return;
+		busyKey = 'users';
+		try {
+			const result = await getAdminUsers(userQuery.trim(), userCursor);
+			users = result.items;
+			userCursor = result.next_cursor;
+		} catch {
+			userError = 'common.error';
+		} finally {
+			busyKey = '';
+		}
+	}
+
+	async function nextAudit() {
+		if (!auditCursor) return;
+		busyKey = 'audit';
+		errorMessage = false;
+		try {
+			const result = await getAdminAudit(auditCursor);
+			auditEntries = result.items;
+			auditCursor = result.next_cursor;
+		} catch {
+			errorMessage = true;
+		} finally {
+			busyKey = '';
 		}
 	}
 
@@ -186,6 +243,10 @@
 
 	<section class="glass-panel section" aria-labelledby="users-title">
 		<h2 id="users-title">{t('admin.users.title')}</h2>
+		<form class="user-search" onsubmit={searchUsers}>
+			<TextField label={t('admin.users.search')} type="search" bind:value={userQuery} />
+			<Button type="submit" disabled={busyKey === 'users'}>{t('admin.users.searchSubmit')}</Button>
+		</form>
 		{#if userError}
 			<Alert>{t(userError)}</Alert>
 		{/if}
@@ -234,6 +295,30 @@
 					</li>
 				{/each}
 			</ul>
+		{/if}
+		{#if !loading && userCursor}
+			<Button variant="quiet" disabled={busyKey === 'users'} onclick={nextUsers}>{t('admin.users.next')}</Button>
+		{/if}
+	</section>
+
+	<section class="glass-panel section" aria-labelledby="audit-title">
+		<h2 id="audit-title">{t('admin.audit.title')}</h2>
+		{#if loading}
+			<p>{t('common.loading')}</p>
+		{:else if auditEntries.length === 0}
+			<p>{t('admin.audit.empty')}</p>
+		{:else}
+			<ul class="audit-list">
+				{#each auditEntries as entry (entry.id)}
+					<li class="glass-inset">
+						<div><strong>{entry.action}</strong><span>{t('admin.audit.actor', { actor: entry.actor, user: entry.user_id })}</span></div>
+						<div><span>{t('admin.audit.target', { type: entry.target_type, id: entry.target_id ?? t('admin.audit.noTarget') })}</span><time datetime={entry.created_at}>{formatDate(page.data.locale, new Date(entry.created_at))}</time></div>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if !loading && auditCursor}
+			<Button variant="quiet" disabled={busyKey === 'audit'} onclick={nextAudit}>{t('admin.audit.next')}</Button>
 		{/if}
 	</section>
 
@@ -305,6 +390,12 @@
 	.module-list li, .invitation-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 	.module-list input { width: 1.2rem; height: 1.2rem; accent-color: var(--accent-text); }
 	.create-form { display: grid; grid-template-columns: minmax(8rem, 12rem) auto; align-items: end; justify-content: start; gap: 0.75rem; }
+	.user-search { display: flex; align-items: end; flex-wrap: wrap; gap: 0.75rem; }
+	.user-search :global(.field) { flex: 1 1 14rem; }
+	.audit-list { display: grid; gap: 0.5rem; list-style: none; padding: 0; margin: 0; }
+	.audit-list li { display: grid; gap: 0.35rem; padding: 0.75rem; border-radius: 1rem; min-width: 0; }
+	.audit-list li > div { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem 1rem; }
+	.audit-list span, .audit-list time { color: var(--muted); overflow-wrap: anywhere; }
 	.invite-result { display: grid; gap: 0.5rem; }
 	.invite-result p { margin: 0; }
 	.link-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; min-width: 0; }

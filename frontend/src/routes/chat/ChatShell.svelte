@@ -9,6 +9,8 @@
 		listMessages,
 		renameConversation,
 		streamMessage,
+		uploadAttachment,
+		continueAfterAction,
 		type ChatMessage,
 		type Conversation,
 		type StreamEvent
@@ -22,11 +24,13 @@
 	let { conversationId = null }: { conversationId?: string | null } = $props();
 	const t = getT();
 	const messagesCatalog = catalogs.en;
-	type DisplayMessage = Pick<ChatMessage, 'id' | 'role' | 'content' | 'created_at' | 'citations'>;
+	type DisplayMessage = Pick<ChatMessage, 'id' | 'role' | 'content' | 'created_at' | 'citations' | 'attachments'>;
 	let conversations = $state<Conversation[]>([]);
 	let messages = $state<DisplayMessage[]>([]);
-	let activeId = $state<string | null>(conversationId);
+	let activeId = $state<string | null>(untrack(() => conversationId));
 	let draft = $state('');
+	let attachmentFiles = $state<File[]>([]);
+	let uploadedAttachmentIds = $state<(string | null)[]>([]);
 	let loading = $state(true);
 	let streaming = $state(false);
 	let failed = $state(false);
@@ -153,7 +157,7 @@
 			activeTool = '';
 			let assistant = messages.find((message) => message.id === 'streaming-assistant');
 			if (!assistant) {
-				assistant = { id: 'streaming-assistant', role: 'assistant', content: '', created_at: new Date().toISOString(), citations: null };
+				assistant = { id: 'streaming-assistant', role: 'assistant', content: '', created_at: new Date().toISOString(), citations: null, attachments: [] };
 				messages = [...messages, assistant];
 			}
 			messages = messages.map((message) => message.id === 'streaming-assistant'
@@ -171,7 +175,8 @@
 					role: 'assistant',
 					content: '',
 					created_at: new Date().toISOString(),
-					citations: streamSources
+					citations: streamSources,
+					attachments: []
 				}];
 			}
 			conversations = conversations.map((item) => item.id === activeId
@@ -183,7 +188,7 @@
 	}
 
 	async function send(content = draft) {
-		const text = content.trim();
+		const text = content.trim() || (attachmentFiles.length ? t('chat.attachmentPrompt') : '');
 		if (!text || streaming) return;
 		failed = false;
 		toolFailed = '';
@@ -205,7 +210,18 @@
 				replaceState(`/chat/${targetId}`, {});
 			}
 			controller = new AbortController();
-			await streamMessage(targetId, text, controller.signal, handleEvent);
+			const attachmentIds: string[] = [];
+			for (let index = 0; index < attachmentFiles.length; index += 1) {
+				let attachmentId = uploadedAttachmentIds[index];
+				if (!attachmentId) {
+					attachmentId = (await uploadAttachment(targetId, attachmentFiles[index])).id;
+					uploadedAttachmentIds[index] = attachmentId;
+				}
+				attachmentIds.push(attachmentId);
+			}
+			await streamMessage(targetId, text, controller.signal, handleEvent, attachmentIds);
+			attachmentFiles = [];
+			uploadedAttachmentIds = [];
 			conversations = await listConversations();
 		} catch (error) {
 			if (!(error instanceof DOMException && error.name === 'AbortError')) failed = true;
@@ -237,8 +253,15 @@
 		try {
 			const updated = await decideAction(action.id, approve);
 			actions = actions.map((item) => item.id === action.id ? updated : item);
+			if (activeId) {
+				streaming = true;
+				streamSources = [];
+				controller = new AbortController();
+				await continueAfterAction(activeId, action.id, controller.signal, handleEvent);
+				conversations = await listConversations();
+			}
 		} catch { actionFailed = true; }
-		finally { busyId = ''; }
+		finally { busyId = ''; streaming = false; controller = null; }
 	}
 
 	function toolLabel(name: string): string {
@@ -258,6 +281,7 @@
 			<h1>{t('chat.conversations')}</h1>
 			<Button variant="quiet" onclick={startNew} disabled={streaming}>{t('chat.new')}</Button>
 			<a class="memory-link" href="/chat/memories">{t('chat.memoryLink')}</a>
+			<a class="memory-link" href="/chat/audit">{t('chat.audit.link')}</a>
 		</div>
 		{#if loading}
 			<p class="muted">{t('common.loading')}</p>
@@ -306,6 +330,11 @@
 								{@html renderMarkdown(message.content)}
 							</div>
 						{/if}
+						{#if message.attachments?.length}
+							<ul class="message-attachments" aria-label={t('chat.attachments')}>
+								{#each message.attachments ?? [] as attachment (attachment.id)}<li>{attachment.filename}</li>{/each}
+							</ul>
+						{/if}
 						{#if message.role === 'assistant'}
 							{@const sources = parseSources(message.citations)}
 							{#if sources.length}
@@ -322,6 +351,9 @@
 													<span class="kind">{t('chat.sourceFile')}</span>
 													<a href={fileSourceHref(source)}>{t('chat.sourceFilePassage', { name: source.file_name, position: source.position + 1, version: source.version })}</a>
 													<span class="snippet">{source.snippet}</span>
+								{:else if source.type === 'attachment'}
+									<span class="kind">{t('chat.sourceAttachment')}</span>
+									<span>{source.filename}</span>
 												{:else}
 													<span class="kind">{t('chat.sourceConversation')}</span>
 													<a href="/chat/{source.conversation_id}">{source.snippet}</a>
@@ -357,12 +389,31 @@
 			{#if activeTool}<p class="speaker" role="status">{t('chat.toolRunning', { tool: toolLabel(activeTool) })}</p>{/if}
 			<label class="visually-hidden" for="chat-composer">{t('chat.composer')}</label>
 			<textarea id="chat-composer" bind:this={composer} bind:value={draft} class="glass-control" rows="3" maxlength="20000" placeholder={t('chat.placeholder')} disabled={streaming} onkeydown={composerKeydown}></textarea>
+			<label for="chat-attachments">{t('chat.attachments')}</label>
+			<input id="chat-attachments" type="file" accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp" multiple disabled={streaming} onchange={(event) => {
+				const selected = Array.from(event.currentTarget.files ?? []);
+				if (attachmentFiles.length + selected.length <= 5) {
+					attachmentFiles = [...attachmentFiles, ...selected];
+					uploadedAttachmentIds = [...uploadedAttachmentIds, ...selected.map(() => null)];
+				}
+				event.currentTarget.value = '';
+			}} />
+			{#if attachmentFiles.length}
+				<ul class="attachment-list" aria-label={t('chat.attachments')}>
+					{#each attachmentFiles as file, index (`${file.name}-${index}`)}
+						<li><span>{file.name}</span><Button type="button" variant="quiet" disabled={streaming} aria-label={t('chat.removeAttachment', { name: file.name })} onclick={() => {
+							attachmentFiles = attachmentFiles.filter((_, itemIndex) => itemIndex !== index);
+							uploadedAttachmentIds = uploadedAttachmentIds.filter((_, itemIndex) => itemIndex !== index);
+						}}>{t('chat.removeAttachmentButton')}</Button></li>
+					{/each}
+				</ul>
+			{/if}
 			<div class="composer-actions">
 				{#if failed && lastSubmitted}<Button type="button" variant="quiet" disabled={streaming} onclick={() => void send(lastSubmitted)}>{t('chat.retry')}</Button>{/if}
 				{#if streaming}
 					<Button type="button" variant="quiet" onclick={stop}>{t('chat.stop')}</Button>
 				{:else}
-					<Button type="submit" disabled={!draft.trim()}>{t('chat.send')}</Button>
+				<Button type="submit" disabled={!draft.trim() && attachmentFiles.length === 0}>{t('chat.send')}</Button>
 				{/if}
 			</div>
 		</form>
@@ -407,6 +458,10 @@
 	.composer { display: grid; gap: 0.5rem; }
 	textarea { width: 100%; resize: vertical; padding: 0.7rem; font: inherit; }
 	.composer-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+	.attachment-list { display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+	.message-attachments { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0; padding: 0; list-style: none; font-size: 0.8rem; }
+	.message-attachments li { background: var(--glass-inset-fill); border-radius: 0.5rem; padding: 0.3rem 0.55rem; overflow-wrap: anywhere; }
+	.attachment-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; min-width: 0; overflow-wrap: anywhere; background: var(--glass-inset-fill); border-radius: 0.5rem; }
 	.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 	@media (max-width: 720px) {
 		.chat-layout { height: auto; min-height: calc(100vh - 3rem); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(26rem, 1fr); }

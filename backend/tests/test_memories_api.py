@@ -31,6 +31,8 @@ async def test_memory_crud_and_validation(client: httpx.AsyncClient) -> None:
 
     assert (await client.delete(f"/api/v1/memories/{memory['id']}")).status_code == 204
     assert (await client.get("/api/v1/memories")).json() == []
+    actions = [item["action"] for item in (await client.get("/api/v1/agent/audit")).json()]
+    assert actions == ["memory.delete", "memory.update"]
     assert (await client.delete(f"/api/v1/memories/{memory['id']}")).status_code == 404
 
 

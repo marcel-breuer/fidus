@@ -17,7 +17,7 @@ async def _login(client: httpx.AsyncClient, email: str) -> None:
 async def _users(client: httpx.AsyncClient) -> dict[str, dict]:
     response = await client.get("/api/v1/admin/users")
     assert response.status_code == 200
-    return {item["email"]: item for item in response.json()}
+    return {item["email"]: item for item in response.json()["items"]}
 
 
 async def _setup(client: httpx.AsyncClient) -> dict[str, dict]:
@@ -49,6 +49,7 @@ async def test_admin_endpoints_reject_anonymous_and_member(client: httpx.AsyncCl
 
     await _login(client, "member@example.com")
     assert (await client.get("/api/v1/admin/users")).status_code == 403
+    assert (await client.get("/api/v1/admin/audit")).status_code == 403
     patch = await client.patch(f"/api/v1/admin/users/{member_id}", json={"role": "admin"})
     assert patch.status_code == 403
     assert (await client.get("/api/v1/admin/registration")).status_code == 403
@@ -64,6 +65,48 @@ async def test_admin_lists_users(client: httpx.AsyncClient) -> None:
         "is_active": True, "created_at": users["member@example.com"]["created_at"],
     }
     assert "hashed_password" not in users["member@example.com"]
+
+
+async def test_admin_user_search_and_cursor_pagination(client: httpx.AsyncClient) -> None:
+    await _setup(client)
+    assert (await register(client, "alpha@example.com")).status_code == 201
+    assert (await register(client, "beta@example.com")).status_code == 201
+    search = await client.get("/api/v1/admin/users", params={"q": "BETA"})
+    assert [item["email"] for item in search.json()["items"]] == ["beta@example.com"]
+    wildcard_search = await client.get("/api/v1/admin/users", params={"q": "%"})
+    assert wildcard_search.json()["items"] == []
+    first = await client.get("/api/v1/admin/users", params={"limit": 1})
+    assert first.status_code == 200 and first.json()["next_cursor"]
+    second = await client.get(
+        "/api/v1/admin/users", params={"limit": 1, "cursor": first.json()["next_cursor"]}
+    )
+    assert second.status_code == 200
+    assert first.json()["items"][0]["id"] != second.json()["items"][0]["id"]
+    assert (await client.get("/api/v1/admin/users", params={"cursor": "invalid"})).status_code == 400
+
+
+async def test_admin_audit_is_instance_wide_and_paged_only_for_admins(
+    client: httpx.AsyncClient, owner_engine
+) -> None:
+    users = await _setup(client)
+    member = await register(client, "second-admin@example.com")
+    async with owner_engine.begin() as connection:
+        await connection.execute(
+            text("UPDATE users SET is_superuser = true WHERE id = :id"), {"id": member.json()["id"]}
+        )
+    await client.post("/api/v1/invitations", json={})
+    await _login(client, "second-admin@example.com")
+    response = await client.get("/api/v1/admin/audit", params={"limit": 1})
+    assert response.status_code == 200 and response.json()["items"]
+    assert response.json()["items"][0]["action"] == "admin.invitation.create"
+    cursor = response.json()["next_cursor"]
+    if cursor:
+        following = await client.get("/api/v1/admin/audit", params={"limit": 1, "cursor": cursor})
+        assert following.status_code == 200
+        assert following.json()["items"][0]["id"] != response.json()["items"][0]["id"]
+    async with user_session(users["member@example.com"]["id"]) as session:
+        assert await session.scalar(text("SELECT count(*) FROM admin_list_audit_entries(NULL, NULL, 10)")) == 0
+    assert users["admin@example.com"]["role"] == "admin"
 
 
 async def test_deactivation_locks_user_out_and_is_audited(

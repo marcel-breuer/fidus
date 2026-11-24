@@ -35,6 +35,10 @@ class OpenAIChatProvider:
                 input_items.append({
                     "type": "function_call_output", "call_id": item.tool_call_id, "output": item.content,
                 })
+            elif item.image_data_urls:
+                content: list[dict[str, Any]] = [{"type": "input_text", "text": item.content}]
+                content.extend({"type": "input_image", "image_url": url} for url in item.image_data_urls)
+                input_items.append({"role": item.role, "content": content})
             else:
                 input_items.append({"role": item.role, "content": item.content})
         options: dict[str, Any] = {}
