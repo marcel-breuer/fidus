@@ -22,6 +22,22 @@ class ActionNotPending(Exception):
     """The action was already decided."""
 
 
+async def outcome_context(session: AsyncSession, user: User, conversation_id: str, action_id: str) -> str:
+    action = await session.scalar(select(AgentAction).where(
+        AgentAction.id == action_id, AgentAction.user_id == user.id,
+        AgentAction.conversation_id == conversation_id,
+    ))
+    if action is None:
+        raise ActionNotFound
+    if action.status == "pending":
+        raise ActionNotPending
+    decision = {"approved": "approved", "rejected": "rejected"}.get(action.status, "could not complete")
+    return (
+        f"The user {decision} the proposed {action.tool} action. Outcome: {action.status}. "
+        "Continue the conversation and acknowledge this result."
+    )
+
+
 async def create_pending(
     session: AsyncSession, user: User, conversation_id: str, message_id: str | None,
     tool: str, arguments: dict,

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import and_, or_, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models import Conversation, Message, User
 
@@ -144,7 +145,7 @@ async def list_messages(
         raise ValueError("Limit must be between 1 and 100")
     if await get_conversation(session, user, conversation_id) is None:
         return [], None
-    statement = select(Message).where(
+    statement = select(Message).options(selectinload(Message.attachments)).where(
         Message.user_id == user.id,
         Message.conversation_id == conversation_id,
         Message.deleted_at.is_(None),

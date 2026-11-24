@@ -10,7 +10,8 @@ export type WriteMode = components['schemas']['AgentSettingsOut']['write_mode'];
 export type SourceReference =
 	| { type: 'file'; ref: number; file_name: string; node_id: string; folder_id: string | null; version: number; position: number; snippet: string }
 	| { type: 'web'; ref: number; title: string; url: string }
-	| { type: 'conversation'; ref: number; conversation_id: string; message_id: string; snippet: string };
+	| { type: 'conversation'; ref: number; message_id: string; conversation_id: string; snippet: string }
+	| { type: 'attachment'; ref: number; filename: string };
 
 const api = createApiClient(fetch, '');
 
@@ -98,6 +99,7 @@ export function parseSources(value: unknown): SourceReference[] {
 		if (item.type === 'web' && typeof item.url === 'string' && typeof item.title === 'string') result.push(item);
 		else if (item.type === 'file' && typeof item.node_id === 'string' && typeof item.file_name === 'string') result.push(item);
 		else if (item.type === 'conversation' && typeof item.conversation_id === 'string') result.push(item);
+		else if (item.type === 'attachment' && typeof item.filename === 'string') result.push(item);
 	}
 	return result.sort((a, b) => a.ref - b.ref);
 }

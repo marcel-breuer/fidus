@@ -63,6 +63,42 @@ async def test_openai_provider_maps_text_tool_and_completion_events() -> None:
     ]
 
 
+async def test_openai_provider_maps_image_inputs() -> None:
+    class Stream:
+        def __aiter__(self) -> AsyncIterator[SimpleNamespace]:
+            async def iterate():
+                yield SimpleNamespace(
+                    type="response.completed",
+                    response=SimpleNamespace(usage=SimpleNamespace(input_tokens=1, output_tokens=1)),
+                )
+            return iterate()
+
+    class Responses:
+        calls: list[dict[str, object]] = []
+
+        async def create(self, **kwargs):
+            self.calls.append(kwargs)
+            return Stream()
+
+    class Client:
+        def __init__(self) -> None:
+            self.responses = Responses()
+
+    client = Client()
+    provider = OpenAIChatProvider(client)
+    image = "data:image/png;base64,aGVsbG8="
+    await _collect(provider, ChatRequest(
+        system=None, messages=[ChatMessage("user", "Describe", image_data_urls=[image])], tools=[]
+    ))
+    assert client.responses.calls[0]["input"] == [{
+        "role": "user",
+        "content": [
+            {"type": "input_text", "text": "Describe"},
+            {"type": "input_image", "image_url": image},
+        ],
+    }]
+
+
 async def test_openai_embeddings_batch_at_64_and_preserve_order() -> None:
     class Embeddings:
         calls: list[dict[str, object]] = []

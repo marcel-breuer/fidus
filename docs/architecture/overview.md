@@ -1,6 +1,6 @@
 # Fidus — Architecture Overview
 
-Status: the scaffold, the tasks module with in-app reminders, chat Stages 1–3, Files Stages 1–2, the audio module (`Refs #20`), personal access tokens and the MCP server (`Refs #22`), usage counters, structured logging, backup scripts and the security review (`Refs #23`) are implemented. Chat attachments and OAuth remain design only. Update this file together with the code.
+Status: the scaffold, the tasks module with in-app reminders, chat Stages 1–3, chat attachments and action-decision follow-up (`Refs #51–#52`), Files Stages 1–2, the audio module (`Refs #20`), personal access tokens and the MCP server (`Refs #22`), usage counters, structured logging, backup scripts and the security review (`Refs #23`) are implemented. OAuth remains design only. Update this file together with the code.
 
 ## 0. Implemented in the scaffold
 - Compose services: `gateway`, `frontend`, `backend`, `worker`, `scheduler`, `db`, `redis` and the one-shot `migrate` service that `backend`, `worker` and `scheduler` wait for. Networks: `edge` (gateway only), `internal` (no outbound route), `egress` (backend and worker, for the OpenAI API); the scheduler only needs Redis on `internal`.
@@ -128,8 +128,9 @@ The embedding dimension is fixed in the config file; changing the embedding mode
 
 ## 7. Chat and agent
 - Orchestrator loop (implemented): user message -> inject durable memories -> model call with registered tools -> execute read tools through services and feed delimited results back -> stream result. File retrieval and web results are cited through tool results; the model is told to cite them as `[n]`.
-- Streaming to the browser via Server-Sent Events: `message`, `delta`, `tool`, `citations`, `action` and `done`/`error` events. Resuming a dropped stream by message id is not implemented.
-- Tools are the capabilities from section 4 filtered by the user's scopes. Tool output and retrieved content are untrusted: they are delimited in prompts and cannot grant permissions. Write tools are attributed to the user and written to `audit_log`; a per-user policy chooses "ask before write" (default) or "allow". Implemented write tools are `remember`, `create_task`, `create_file` and `update_file` (audit actions `agent.<tool>`, target type `file` for the file tools); the file tools are not exposed over MCP, and scope filtering by token is not implemented for the chat agent. A pending action is not reported back to the model after the user decides.
+- Streaming to the browser via Server-Sent Events: `message`, `delta`, `tool`, `citations`, `action` and `done`/`error` events. Approving or rejecting a pending action starts a follow-up assistant turn; its outcome is sent as system context. Resuming a dropped stream by message id is not implemented because partial assistant output is not persisted.
+- Tools are the capabilities from section 4 filtered by the user's scopes. Tool output and retrieved content are untrusted: they are delimited in prompts and cannot grant permissions. Write tools are attributed to the user and written to `audit_log`; a per-user policy chooses "ask before write" (default) or "allow". Implemented write tools are `remember`, `create_task`, `create_file` and `update_file` (audit actions `agent.<tool>`, target type `file` for the file tools); the file tools are not exposed over MCP, and scope filtering by token is not implemented for the chat agent.
+- Attachments (`Refs #51`) are stored as owner-scoped blobs with a forced-RLS metadata row. PDF, plain text, Markdown, PNG, JPEG and WebP are accepted at up to 10 MiB each, with at most five per message. Extracted text is bounded and delimited as untrusted context. The provider interface carries image data URLs to the OpenAI Responses adapter; images are not text-extracted.
 - Web search uses the provider's hosted search behind the `WebSearchProvider` interface. The backend fetches no pages itself, so nothing is requested from private address ranges; the answer is truncated and result links are limited to `http` and `https`.
 - Memory: the conversation history is searchable (`search_conversations`); durable facts are stored as `memories` (at most 200, 1000 characters each) that the user can view, add, edit and delete; the agent can propose new ones through `remember`.
 
@@ -141,7 +142,7 @@ Files Stage 1 (`Refs #19`) stores uploaded versions and provides the browser and
 4. Retrieve: cosine vector top-k and PostgreSQL simple full-text top-k are merged by reciprocal rank fusion (`k=60`), scoped by owner, and exclude soft-deleted files and old versions. Results include source file, version, chunk position and snippet.
 5. Update: a newer version is searchable only when its indexing is ready and removes stale chunks; soft deletion removes document text and chunks from search.
 
-Chat uses this retrieval through the `search_knowledge` tool and cites passages. Memo transcripts (`source = 'memo'`) use the same chunking, embedding and retrieval. Not implemented: agent-created files and chat attachments.
+Chat uses this retrieval through the `search_knowledge` tool and cites passages. Memo transcripts (`source = 'memo'`) use the same chunking, embedding and retrieval. Not implemented: agent-created files.
 
 ## 9. Audio
 - Browser records with MediaRecorder and uploads; file upload uses the same path.
@@ -162,6 +163,7 @@ Chat uses this retrieval through the `search_knowledge` tool and cites passages.
 - Files Stage 1 (`Refs #19`): `GET /files/nodes`, `POST /files/folders`, `POST /files/upload`, `PATCH/DELETE /files/nodes/{id}`, `GET /files/nodes/{id}/download`, and `GET /files/nodes/{id}/versions`. Routes are authenticated and gated by files-module enablement; upload and node reads are user-scoped.
 - Chat Stage 3 (`Refs #18`): `GET/POST /memories`, `PATCH/DELETE /memories/{id}`, `GET/PUT /agent/settings`, `GET /conversations/{id}/actions`, `POST /agent/actions/{id}/approve` and `/reject`, `GET /agent/audit`. All are authenticated, user-scoped and gated by chat-module enablement; writes use CSRF protection.
 - Administration: `GET /admin/users?q=&limit=&cursor=` returns a cursor-paginated, optionally email-filtered user page; `GET /admin/audit?limit=&cursor=` returns cursor-paginated audit metadata across the instance through the reviewed admin-only function. Both require an active admin. `/invitations` list and revoke now apply across admins through the reviewed functions; creation remains actor-attributed.
+- Chat attachments (`Refs #51`): `POST /conversations/{id}/attachments` accepts one bounded PDF, text, Markdown or image upload. `POST /conversations/{id}/messages/stream` binds up to five owner-scoped attachment ids to a user message. `POST /conversations/{id}/actions/{action_id}/continue` starts a follow-up SSE turn after a decision. All are authenticated, chat-module gated and user-scoped.
 - Files Stage 2 (`Refs #19`): `GET /files/nodes/{id}/document`, `POST /files/nodes/{id}/reindex`, and `GET /knowledge/search?q=&limit=` provide indexing status, latest-version retry and scoped hybrid search. All are authenticated and gated by files-module enablement; writes use CSRF protection.
 - Audio (`Refs #20`): `GET/POST /audio/memos`, `GET/PATCH/DELETE /audio/memos/{id}`, `POST /audio/memos/{id}/retry`, `GET /audio/memos/{id}/audio` and `POST /audio/memos/{id}/speech`. All are authenticated and gated by audio-module enablement; writes use CSRF protection.
 - Cursor pagination, consistent error shape, idempotency keys for create operations, request ids in responses and logs.
@@ -190,7 +192,7 @@ Operations: health endpoints (`/health`, `/api/v1/health`), structured JSON logs
 ## 15. Security summary
 - Data separation by `user_id` in every repository call and by PostgreSQL row-level security, tested with cross-user negative tests.
 - Secrets only in environment variables; tokens stored hashed; the OpenAI key never reaches the browser.
-- Upload validation checks type, size and filename; uploaded content is never executed. Text extraction is not implemented yet and will treat content as untrusted when added.
+- Upload validation checks attachment type signatures, size and filename; uploaded content is never executed. Extracted attachment text is passed to the model only as delimited untrusted content.
 - Prompt-injection posture: retrieved and fetched content is untrusted; write tools need approval by default; tools are typed and registered, no raw SQL or shell.
 - Audit log for agent writes, token creation and administrative actions.
 

@@ -19,6 +19,7 @@ class ChatMessage:
     content: str
     tool_call: ToolCall | None = None
     tool_call_id: str | None = None
+    image_data_urls: list[str] | None = None
 
 
 @dataclass(frozen=True)
