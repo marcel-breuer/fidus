@@ -8,12 +8,14 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.db.models import ApiToken, User
 from app.db.session import system_session
 from app.modules.registry import ALL_SCOPES
 from app.services import audit
 
 TOKEN_PREFIX = "fidus_pat_"
+OAUTH_ACCESS_PREFIX = "fidus_oauth_"
 DEFAULT_EXPIRY_DAYS = 90
 MAX_EXPIRY_DAYS = 365
 MAX_ACTIVE_TOKENS = 25
@@ -105,18 +107,26 @@ async def revoke_token(session: AsyncSession, user: User, token_id: str, *, now:
     return True
 
 
-async def authenticate_token(secret: str) -> TokenIdentity | None:
-    """Resolve a bearer secret to its owner. Runs before any user context exists, so it goes
-    through the reviewed authenticate_api_token function instead of the row-secured table."""
-    if not secret.startswith(TOKEN_PREFIX) or len(secret) > 200:
+async def authenticate_token(secret: str, resource: str | None = None) -> TokenIdentity | None:
+    """Resolve PAT or audience-bound OAuth credentials before any user context exists."""
+    if not secret.startswith((TOKEN_PREFIX, OAUTH_ACCESS_PREFIX)) or len(secret) > 256:
         return None
     async with system_session() as session:
+        token_hash = hash_token(secret)
         row = (
             await session.execute(
                 text("SELECT token_id, user_id, scopes FROM authenticate_api_token(:token_hash)"),
-                {"token_hash": hash_token(secret)},
+                {"token_hash": token_hash},
             )
         ).first()
+        if row is None and secret.startswith(OAUTH_ACCESS_PREFIX):
+            resource_uri = resource or f"{get_settings().app_url.rstrip('/')}/mcp"
+            row = (
+                await session.execute(
+                    text("SELECT token_id, user_id, scopes FROM authenticate_oauth_access(:token_hash, :resource)"),
+                    {"token_hash": token_hash, "resource": resource_uri},
+                )
+            ).first()
     if row is None:
         return None
     return TokenIdentity(token_id=row.token_id, user_id=row.user_id, scopes=frozenset(row.scopes))

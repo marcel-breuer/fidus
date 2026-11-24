@@ -359,6 +359,60 @@ class ApiToken(TimestampMixin, Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class OAuthClient(TimestampMixin, Base):
+    """Public OAuth client registered for the instance; clients do not belong to a user."""
+
+    __tablename__ = "oauth_clients"
+
+    client_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    client_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    redirect_uris: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+
+
+class OAuthAuthorizationCode(Base):
+    """Short-lived, single-use authorization code owned by the consenting user."""
+
+    __tablename__ = "oauth_authorization_codes"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("oauth_clients.client_id", ondelete="CASCADE"), nullable=False
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    resource: Mapped[str] = mapped_column(String(500), nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
+    code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class OAuthGrant(TimestampMixin, Base):
+    """User-approved OAuth grant and hash-only opaque access and refresh credentials."""
+
+    __tablename__ = "oauth_grants"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        String(26), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("oauth_clients.client_id", ondelete="CASCADE"), nullable=False
+    )
+    resource: Mapped[str] = mapped_column(String(500), nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
+    access_token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    access_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    refresh_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ModuleSetting(Base):
     """Instance-wide module enablement; intentionally not user-owned or RLS protected."""
 

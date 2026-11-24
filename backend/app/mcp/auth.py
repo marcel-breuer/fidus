@@ -18,9 +18,6 @@ from app.services.api_tokens import authenticate_token
 
 logger = logging.getLogger(__name__)
 
-_CHALLENGE = {"WWW-Authenticate": 'Bearer realm="fidus"'}
-
-
 @dataclass(frozen=True)
 class McpPrincipal:
     user: User
@@ -29,7 +26,19 @@ class McpPrincipal:
 
 
 def _unauthorized() -> HTTPException:
-    return HTTPException(status_code=401, detail="INVALID_TOKEN", headers=_CHALLENGE)
+    from app.config import get_settings
+
+    metadata_url = f"{get_settings().app_url.rstrip('/')}/.well-known/oauth-protected-resource/mcp"
+    return HTTPException(
+        status_code=401,
+        detail="INVALID_TOKEN",
+        headers={
+            "WWW-Authenticate": (
+                f'Bearer realm="fidus", error="invalid_token", '
+                f'resource_metadata="{metadata_url}"'
+            )
+        },
+    )
 
 
 def _bearer_secret(request: Request) -> str | None:
