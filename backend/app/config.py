@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     mcp_rate_limit_requests: int = Field(default=120, ge=1)
     mcp_rate_limit_window_seconds: int = Field(default=60, ge=1)
 
+    chat_rate_limit_requests: int = Field(default=30, ge=1)
+    chat_rate_limit_window_seconds: int = Field(default=60, ge=1)
+    file_upload_rate_limit_requests: int = Field(default=20, ge=1)
+    file_upload_rate_limit_window_seconds: int = Field(default=60, ge=1)
+    transcription_rate_limit_requests: int = Field(default=20, ge=1)
+    transcription_rate_limit_window_seconds: int = Field(default=3600, ge=1)
+    memo_transcription_timeout_seconds: int = Field(default=1800, ge=60)
+
     openai_api_key: str = ""
 
 

@@ -43,14 +43,15 @@
 	}, 300);
 
 	function messageFor(code: string): string {
-		const keys: Record<string, 'files.invalidName' | 'files.unsupportedType' | 'files.nameConflict' | 'files.notFound' | 'files.moveCycle' | 'files.uploadTooLarge'> = {
+		const keys: Record<string, 'files.invalidName' | 'files.unsupportedType' | 'files.nameConflict' | 'files.notFound' | 'files.moveCycle' | 'files.uploadTooLarge' | 'common.rateLimited'> = {
 			INVALID_NAME: 'files.invalidName',
 			UNSUPPORTED_TYPE: 'files.unsupportedType',
 			NAME_CONFLICT: 'files.nameConflict',
 			PARENT_NOT_FOUND: 'files.notFound',
 			NODE_NOT_FOUND: 'files.notFound',
 			MOVE_CYCLE: 'files.moveCycle',
-			FILE_TOO_LARGE: 'files.uploadTooLarge'
+			FILE_TOO_LARGE: 'files.uploadTooLarge',
+			RATE_LIMITED: 'common.rateLimited'
 		};
 		return t(keys[code] ?? 'files.error');
 	}
