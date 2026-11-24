@@ -13,6 +13,7 @@ from app.ai.deps import get_embedding_provider
 from app.ai.providers import EmbeddingProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
+from app.auth.rate_limit import enforce_user_rate_limit
 from app.db.models import FileVersion, Node, User
 from app.modules.guard import require_module
 from app.services import files as service
@@ -130,7 +131,13 @@ async def post_folder(
         raise _error(exc) from exc
 
 
-@router.post("/files/upload", response_model=NodeOut, status_code=201)
+@router.post(
+    "/files/upload",
+    response_model=NodeOut,
+    status_code=201,
+    responses={429: {"description": "Per-user file upload limit exceeded"}},
+    dependencies=[Depends(enforce_user_rate_limit("file_upload"))],
+)
 async def post_upload(
     file: UploadFile = File(...),
     parent_id: str | None = Form(default=None),

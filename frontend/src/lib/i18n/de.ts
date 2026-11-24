@@ -4,6 +4,7 @@ export const de: Record<MessageKey, string> = {
 	'app.name': 'Fidus',
 	'common.loading': 'Lädt…',
 	'common.error': 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',
+	'common.rateLimited': 'Du hast das Anfragelimit erreicht. Bitte warte, bevor du es erneut versuchst.',
 	'common.retry': 'Erneut versuchen',
 	'nav.primary': 'Hauptnavigation',
 	'nav.admin': 'Administration',

@@ -41,6 +41,7 @@ Chat Stage 3 (`Refs #18`) implements durable memories (view, add, edit, delete a
 ### Audio
 - Browser recording (MediaRecorder) and file upload on the audio page; inserting a transcript into a chat message is not implemented
 - Audio upload as memo: transcribe, store transcript as a searchable document
+- Stale transcriptions are requeued after a configurable timeout; duplicate transcription jobs are ignored while a memo is already being processed
 - Long files: ffmpeg segmenting and asynchronous processing (transcription API limit: 25 MB per file; uploads up to 100 MB)
 - Text-to-speech on demand for memo transcripts, cached per memo; speech for chat responses is not implemented
 
@@ -80,4 +81,4 @@ Stage 1 (`Refs #19`) implements the user-facing file tree, local volume storage,
 
 ## Open points
 - Exact model IDs: verify against current OpenAI documentation when implementing
-- Usage limits per user for a hosted service (token and audio-minute budgets), per-user rate limits for chat and uploads (issue #67), an admin usage overview and storage counters
+- Usage limits per user for a hosted service (token and audio-minute budgets), an admin usage overview and storage counters

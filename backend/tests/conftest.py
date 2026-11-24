@@ -124,12 +124,24 @@ def settings():  # type: ignore[no-untyped-def]
         current.registration_mode,
         current.auth_rate_limit_attempts,
         current.auth_rate_limit_window_seconds,
+        current.chat_rate_limit_requests,
+        current.chat_rate_limit_window_seconds,
+        current.file_upload_rate_limit_requests,
+        current.file_upload_rate_limit_window_seconds,
+        current.transcription_rate_limit_requests,
+        current.transcription_rate_limit_window_seconds,
     )
     yield current
     (
         current.registration_mode,
         current.auth_rate_limit_attempts,
         current.auth_rate_limit_window_seconds,
+        current.chat_rate_limit_requests,
+        current.chat_rate_limit_window_seconds,
+        current.file_upload_rate_limit_requests,
+        current.file_upload_rate_limit_window_seconds,
+        current.transcription_rate_limit_requests,
+        current.transcription_rate_limit_window_seconds,
     ) = original
 
 

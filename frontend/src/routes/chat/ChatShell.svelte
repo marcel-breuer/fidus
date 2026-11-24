@@ -30,6 +30,7 @@
 	let loading = $state(true);
 	let streaming = $state(false);
 	let failed = $state(false);
+	let failedMessage = $state('');
 	let renamingId = $state<string | null>(null);
 	let renameValue = $state('');
 	let busyId = $state('');
@@ -186,6 +187,7 @@
 		const text = content.trim();
 		if (!text || streaming) return;
 		failed = false;
+		failedMessage = '';
 		toolFailed = '';
 		actionFailed = false;
 		streamSources = [];
@@ -208,7 +210,10 @@
 			await streamMessage(targetId, text, controller.signal, handleEvent);
 			conversations = await listConversations();
 		} catch (error) {
-			if (!(error instanceof DOMException && error.name === 'AbortError')) failed = true;
+			if (!(error instanceof DOMException && error.name === 'AbortError')) {
+				failed = true;
+				if (error instanceof Error && error.message.includes('429')) failedMessage = t('common.rateLimited');
+			}
 		} finally {
 			streaming = false;
 			controller = null;
@@ -351,7 +356,7 @@
 			</div>
 		{/if}
 		<form class="composer" onsubmit={submit}>
-			{#if failed}<Alert>{t('chat.error')}</Alert>{/if}
+			{#if failed}<Alert>{failedMessage || t('chat.error')}</Alert>{/if}
 			{#if actionFailed}<Alert>{t('chat.actionError')}</Alert>{/if}
 			{#if toolFailed && !streaming}<p class="speaker" role="status">{t('chat.toolError', { tool: toolLabel(toolFailed) })}</p>{/if}
 			{#if activeTool}<p class="speaker" role="status">{t('chat.toolRunning', { tool: toolLabel(activeTool) })}</p>{/if}

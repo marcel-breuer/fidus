@@ -118,8 +118,14 @@ async def process_memo(
 ) -> None:
     """Transcribe a memo (unless its transcript already exists) and index the transcript."""
     async with user_session(user_id) as session:
-        memo = await session.scalar(select(Memo).where(Memo.id == memo_id, Memo.user_id == user_id))
+        memo = await session.scalar(
+            select(Memo)
+            .where(Memo.id == memo_id, Memo.user_id == user_id)
+            .with_for_update()
+        )
         if memo is None:
+            return
+        if memo.status == "transcribing":
             return
         existing = (
             await session.scalar(select(Document).where(Document.id == memo.document_id, Document.user_id == user_id))

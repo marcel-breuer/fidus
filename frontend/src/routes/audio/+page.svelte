@@ -29,7 +29,8 @@
 	const errorKeys: Record<string, MessageKey> = {
 		UNSUPPORTED_TYPE: 'audio.unsupportedType',
 		FILE_TOO_LARGE: 'audio.tooLarge',
-		EMPTY_FILE: 'audio.emptyFile'
+		EMPTY_FILE: 'audio.emptyFile',
+		RATE_LIMITED: 'common.rateLimited'
 	};
 	const reasonKeys: Record<string, MessageKey> = {
 		AI_NOT_CONFIGURED: 'audio.reasonAiNotConfigured',
