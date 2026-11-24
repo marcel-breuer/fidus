@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { MessageKey } from '$lib/i18n';
-	import { getT } from '$lib/i18n/context';
+	import type { MessageKey } from '#lib/i18n/index.ts';
+	import { getT } from '#lib/i18n/context.ts';
 
 	let { data } = $props();
 	const t = getT();

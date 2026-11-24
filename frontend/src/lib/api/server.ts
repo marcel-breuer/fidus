@@ -1,11 +1,11 @@
-import { env } from '$env/dynamic/private';
 import { createApiClient } from './http';
 import type { ModuleEntry, User } from './types';
+import { BACKEND_URL } from '$app/env/private';
 
 type Fetch = typeof fetch;
 
 function createServerClient(fetchFn: Fetch, cookie: string | null) {
-	return createApiClient(fetchFn, env.BACKEND_URL ?? 'http://localhost:8000', { cookie });
+	return createApiClient(fetchFn, BACKEND_URL ?? 'http://localhost:8000', { cookie });
 }
 
 export async function loadUser(f: Fetch, cookie: string | null): Promise<User | null> {

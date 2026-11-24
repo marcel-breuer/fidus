@@ -2,9 +2,9 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { csrfHeaders } from '$lib/api/csrf';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button } from '$lib/ui';
+	import { csrfHeaders } from '#lib/api/csrf.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button } from '#lib/ui/index.ts';
 
 	const t = getT();
 	type ConsentInfo = { client_name: string; redirect_uri: string; scopes: string[] };

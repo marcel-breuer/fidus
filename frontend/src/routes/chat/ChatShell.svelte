@@ -16,13 +16,13 @@
 		type ChatMessage,
 		type Conversation,
 		type StreamEvent
-	} from '$lib/api/chat';
-	import { pickRecorderFormat } from '$lib/api/audio';
-	import { actionSummary, decideAction, fileSourceHref, listActions, parseSources, safeHref, type AgentAction } from '$lib/api/agent';
-	import { renderMarkdown } from '$lib/markdown';
-	import { getT } from '$lib/i18n/context';
-	import { messages as catalogs, type MessageKey } from '$lib/i18n';
-	import { Alert, Button } from '$lib/ui';
+	} from '#lib/api/chat.ts';
+	import { pickRecorderFormat } from '#lib/api/audio.ts';
+	import { actionSummary, decideAction, fileSourceHref, listActions, parseSources, safeHref, type AgentAction } from '#lib/api/agent.ts';
+	import { renderMarkdown } from '#lib/markdown.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { messages as catalogs, type MessageKey } from '#lib/i18n/index.ts';
+	import { Alert, Button } from '#lib/ui/index.ts';
 
 	let { conversationId = null }: { conversationId?: string | null } = $props();
 	const t = getT();

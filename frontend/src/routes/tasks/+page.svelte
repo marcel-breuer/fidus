@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { createTask, completeTask, deleteTask, formatTaskDate, getTasks, serializeDateTime, updateTask, type Task, type TaskStatus } from '$lib/api/tasks';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button, TextField } from '$lib/ui';
+	import { createTask, completeTask, deleteTask, formatTaskDate, getTasks, serializeDateTime, updateTask, type Task, type TaskStatus } from '#lib/api/tasks.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button, TextField } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let items = $state<Task[]>([]);

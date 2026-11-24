@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatAmount, formatDay, isEmptyUsage, USAGE_METRICS, USAGE_PERIODS } from './usage';
-import { messages } from '$lib/i18n';
+import { messages } from '#lib/i18n/index.ts';
 
 describe('usage helpers', () => {
 	it('detects an empty period', () => {

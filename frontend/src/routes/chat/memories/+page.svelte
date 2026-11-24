@@ -9,9 +9,9 @@
 		updateMemory,
 		type Memory,
 		type WriteMode
-	} from '$lib/api/agent';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button } from '$lib/ui';
+	} from '#lib/api/agent.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let items = $state<Memory[]>([]);

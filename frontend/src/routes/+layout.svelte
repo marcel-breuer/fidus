@@ -2,10 +2,10 @@
 	import '../app.css';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { logout, logoutAll } from '$lib/api/client';
-	import { LOCALES, LOCALE_COOKIE, type Locale } from '$lib/i18n';
-	import { getT, provideT } from '$lib/i18n/context';
-	import { Button, ReminderBanner, Sidebar } from '$lib/ui';
+	import { logout, logoutAll } from '#lib/api/client.ts';
+	import { LOCALES, LOCALE_COOKIE, type Locale } from '#lib/i18n/index.ts';
+	import { getT, provideT } from '#lib/i18n/context.ts';
+	import { Button, ReminderBanner, Sidebar } from '#lib/ui/index.ts';
 
 	let { data, children } = $props();
 	provideT(() => data.locale);

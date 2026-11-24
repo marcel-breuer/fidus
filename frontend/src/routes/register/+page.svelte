@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { login, register, type AuthError } from '$lib/api/client';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button, TextField } from '$lib/ui';
+	import { login, register, type AuthError } from '#lib/api/client.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button, TextField } from '#lib/ui/index.ts';
 
 	const t = getT();
 	const errorKeys = {

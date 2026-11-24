@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { dismissReminder, getActiveReminders, mergeReminders, parseReminderPayload } from '$lib/api/reminders';
-	import type { Reminder } from '$lib/api/tasks';
-	import { getT } from '$lib/i18n/context';
-	import { Button } from '$lib/ui';
+	import { dismissReminder, getActiveReminders, mergeReminders, parseReminderPayload } from '#lib/api/reminders.ts';
+	import type { Reminder } from '#lib/api/tasks.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Button } from '#lib/ui/index.ts';
 
 	let { enabled }: { enabled: boolean } = $props();
 	const t = getT();

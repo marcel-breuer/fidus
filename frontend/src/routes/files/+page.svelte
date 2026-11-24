@@ -5,11 +5,11 @@
 		buildBreadcrumbs, createFolder as createFolderRequest, deleteNode, formatFileSize,
 		listFileNodes, listFileVersions, renameNode, uploadFile, validateFile,
 		type FileNode, type FileVersion
-	} from '$lib/api/files';
-	import { debounce, getDocumentStatus, groupCitations, reindexDocument, searchKnowledge, type Citation, type DocumentStatus } from '$lib/api/knowledge';
-	import { formatDate } from '$lib/i18n';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button, TextField } from '$lib/ui';
+	} from '#lib/api/files.ts';
+	import { debounce, getDocumentStatus, groupCitations, reindexDocument, searchKnowledge, type Citation, type DocumentStatus } from '#lib/api/knowledge.ts';
+	import { formatDate } from '#lib/i18n/index.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button, TextField } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let items = $state<FileNode[]>([]);

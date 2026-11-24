@@ -21,11 +21,11 @@
 		type CreatedInvitation,
 		type RegistrationMode,
 		type RegistrationSetting
-	} from '$lib/api/admin';
-	import { formatDate } from '$lib/i18n';
-	import type { MessageKey } from '$lib/i18n';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button, TextField } from '$lib/ui';
+	} from '#lib/api/admin.ts';
+	import { formatDate } from '#lib/i18n/index.ts';
+	import type { MessageKey } from '#lib/i18n/index.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button, TextField } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let modules = $state<AdminModule[]>([]);
@@ -35,7 +35,7 @@
 	let users = $state<AdminUser[]>([]);
 	let userQuery = $state('');
 	let userCursor = $state<string | null>(null);
-	let auditEntries = $state<import('$lib/api/admin').AdminAuditPage['items']>([]);
+	let auditEntries = $state<import('#lib/api/admin.ts').AdminAuditPage['items']>([]);
 	let auditCursor = $state<string | null>(null);
 	let registration = $state<RegistrationSetting | null>(null);
 	let registrationSaved = $state(false);
