@@ -186,7 +186,10 @@ async def stream_message(
     )
 
 
-@router.post("/conversations/{conversation_id}/actions/{action_id}/continue")
+@router.post(
+    "/conversations/{conversation_id}/actions/{action_id}/continue",
+    dependencies=[Depends(enforce_user_rate_limit("chat"))],
+)
 async def continue_after_action(
     conversation_id: str,
     action_id: str,
@@ -220,7 +223,12 @@ async def continue_after_action(
     )
 
 
-@router.post("/conversations/{conversation_id}/attachments", response_model=AttachmentOut, status_code=201)
+@router.post(
+    "/conversations/{conversation_id}/attachments",
+    response_model=AttachmentOut,
+    status_code=201,
+    dependencies=[Depends(enforce_user_rate_limit("file_upload"))],
+)
 async def upload_attachment(
     conversation_id: str,
     file: UploadFile = File(...),

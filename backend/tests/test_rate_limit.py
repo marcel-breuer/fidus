@@ -261,3 +261,27 @@ async def test_paid_operations_have_isolated_per_user_limits(
             files={"file": ("note.webm", audio_data, "audio/webm")},
         )
     ).status_code == 201
+
+
+async def test_attachment_uploads_share_the_upload_limit(
+    client: httpx.AsyncClient, settings, memory_storage
+) -> None:  # type: ignore[no-untyped-def]
+    settings.file_upload_rate_limit_requests = 1
+    settings.file_upload_rate_limit_window_seconds = 60
+    user = (await register(client, "limit-attach@example.com")).json()
+    response = await client.post(
+        "/api/v1/auth/login", data={"username": "limit-attach@example.com", "password": PASSWORD}
+    )
+    assert response.status_code == 204
+    client.headers["X-CSRF-Token"] = client.cookies.get("fidus_csrf") or ""
+    async with user_session(user["id"]) as session:
+        owner = await session.get(User, user["id"])
+        assert owner is not None
+        conversation_id = (await conversations.create_conversation(session, owner, None)).id
+    path = f"/api/v1/conversations/{conversation_id}/attachments"
+    assert (
+        await client.post(path, files={"file": ("a.txt", b"first", "text/plain")})
+    ).status_code == 201
+    limited = await client.post(path, files={"file": ("b.txt", b"second", "text/plain")})
+    assert limited.status_code == 429
+    assert limited.headers["retry-after"] == "60"
