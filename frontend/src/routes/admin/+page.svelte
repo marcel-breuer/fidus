@@ -388,6 +388,8 @@
 	.section { display: grid; gap: 1rem; padding: 1.25rem; min-width: 0; }
 	.module-list, .invitation-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.5rem; }
 	.module-list li, .invitation-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+	.module-list li { min-height: 44px; }
+	.module-list li label { display: flex; align-items: center; flex: 1; min-height: 44px; }
 	.module-list input { width: 1.2rem; height: 1.2rem; accent-color: var(--accent-text); }
 	.create-form { display: grid; grid-template-columns: minmax(8rem, 12rem) auto; align-items: end; justify-content: start; gap: 0.75rem; }
 	.user-search { display: flex; align-items: end; flex-wrap: wrap; gap: 0.75rem; }

@@ -124,12 +124,13 @@
 	.tasks { padding: clamp(1rem, 3vw, 1.5rem); display: grid; gap: 1rem; }
 	h1 { margin: 0; }
 	.create { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+	.create :global(button) { align-self: start; }
 	.field { display: grid; gap: .35rem; font-weight: 600; }
 	textarea { font: inherit; color: var(--ink); padding: .6rem .7rem; resize: vertical; }
 	.filters, .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 	ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
 	li { padding: 1rem; border: 1px solid var(--glass-rim); border-radius: .8rem; display: grid; gap: .65rem; }
-	.complete { display: flex; gap: .65rem; align-items: center; font-weight: 650; }
+	.complete { display: flex; gap: .65rem; align-items: center; min-height: 44px; font-weight: 650; }
 	.complete input { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
 	.finished, .date, .empty { color: var(--muted); }
 	.finished { text-decoration: line-through; }
