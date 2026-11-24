@@ -100,8 +100,53 @@ a {
 }
 
 :focus-visible {
-	outline: 2px solid var(--focus);
+	outline: 3px solid var(--focus);
 	outline-offset: 2px;
+}
+
+button,
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea,
+summary {
+	min-height: 44px;
+}
+
+input[type='file'] {
+	max-width: 100%;
+	color: var(--ink);
+	font: inherit;
+}
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+	color: var(--ink);
+}
+
+input.glass-control,
+select.glass-control,
+textarea.glass-control {
+	background-color: var(--glass-inset-fill);
+}
+
+input::placeholder,
+textarea::placeholder {
+	color: var(--muted);
+	opacity: 1;
+}
+
+input[type='file']::file-selector-button {
+	min-height: 40px;
+	margin-inline-end: 0.65rem;
+	padding: 0.4rem 0.75rem;
+	border: 1px solid var(--glass-border);
+	border-radius: 0.5rem;
+	background: var(--glass-inset-fill);
+	color: var(--ink);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
 }
 
 /* Levels: chrome (navigation), panel, inset. Never nest glass three deep. */
@@ -109,6 +154,7 @@ a {
 .glass-chrome,
 .glass-inset,
 .glass-control {
+	min-width: 0;
 	border: 1px solid var(--glass-rim);
 	background-color: var(--glass-fill);
 	box-shadow:
@@ -120,8 +166,13 @@ a {
 .glass-panel,
 .glass-chrome {
 	border-radius: 1.25rem;
+	color: var(--ink);
 	-webkit-backdrop-filter: var(--glass-blur);
 	backdrop-filter: var(--glass-blur);
+}
+
+.glass-panel > * {
+	min-width: 0;
 }
 
 .glass-inset {
@@ -172,13 +223,100 @@ a {
 	}
 }
 
+@media (prefers-contrast: more) {
+	:root {
+		--glass-border: #49616d;
+		--muted: #29414d;
+		--focus: #004a6c;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--glass-border: #7994a0;
+			--muted: #c4d5dc;
+			--focus: #b9e9ff;
+		}
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	.glass-chrome a:not([aria-current='page']) {
+		color: #e6f3f9;
+	}
+	input.glass-control,
+	select.glass-control,
+	textarea.glass-control {
+		color: #e6f3f9;
+		background-color: #14252e;
+	}
+	input[type='file'] {
+		color: #e6f3f9;
+	}
+	input[type='file']::file-selector-button {
+		color: #e6f3f9;
+		background-color: #14252e;
+	}
+}
+
 @media (forced-colors: active) {
+	:root {
+		color-scheme: light dark;
+		--ink: CanvasText;
+		--muted: CanvasText;
+		--accent-text: LinkText;
+		--focus: Highlight;
+		--glass-border: CanvasText;
+	}
+	body {
+		color: CanvasText;
+		background: Canvas;
+	}
+	a {
+		color: LinkText;
+	}
+	button,
+	input,
+	select,
+	textarea,
+	summary {
+		color: ButtonText;
+	}
 	.glass-panel,
 	.glass-chrome,
 	.glass-inset,
 	.glass-control {
 		background-color: Canvas;
 		border-color: CanvasText;
+	}
+	.glass-control {
+		color: FieldText;
+	}
+	input.glass-control,
+	select.glass-control,
+	textarea.glass-control {
+		color: FieldText;
+		background-color: Field;
+	}
+}
+
+@media print {
+	body {
+		color: #000;
+		background: #fff;
+	}
+	.glass-panel,
+	.glass-chrome,
+	.glass-inset,
+	.glass-control {
+		color: #000;
+		background: #fff;
+		border: 1px solid #555;
+		break-inside: avoid;
+	}
+	input.glass-control,
+	select.glass-control,
+	textarea.glass-control {
+		color: #000;
+		background: #fff;
 	}
 }
 

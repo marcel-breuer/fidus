@@ -26,5 +26,7 @@
 	input {
 		font: inherit;
 		padding: 0.6rem 0.7rem;
+		color: var(--ink);
+		background-color: var(--glass-inset-fill);
 	}
 </style>

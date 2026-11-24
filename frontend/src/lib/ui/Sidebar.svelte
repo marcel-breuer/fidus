@@ -52,9 +52,10 @@
 		display: flex;
 		align-items: center;
 		gap: 0.65rem;
+		min-height: 44px;
 		padding: 0.55rem 0.7rem;
 		border-radius: 0.625rem;
-		color: inherit;
+		color: var(--ink);
 		text-decoration: none;
 		transition:
 			color 180ms ease-out,
@@ -76,11 +77,19 @@
 		display: flex;
 		align-items: center;
 		gap: 0.65rem;
+		min-height: 44px;
 		padding: 0.55rem 0.7rem;
 		border-radius: 0.625rem;
-		color: inherit;
+		color: var(--ink);
 		text-decoration: none;
 	}
 	.extra-link:hover { background: var(--hover); }
 	.extra-link[aria-current='page'] { background: var(--accent); color: var(--accent-ink); }
+	@media (max-width: 720px) {
+		nav { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+		ul { display: grid; flex: 1 1 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem; }
+		li { min-width: 0; }
+		a { white-space: nowrap; }
+		.extra-link { display: inline-flex; flex: 0 0 auto; }
+	}
 </style>
