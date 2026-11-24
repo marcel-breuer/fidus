@@ -13,7 +13,9 @@ from app.config import get_settings
 # read them before any user context exists.
 USER_ID_WITHOUT_RLS = {"sessions"}
 # Tables without a user_id column. `invitations` is secured through its creator column.
-NO_USER_ID_EXPECTED = {"alembic_version", "instance_settings", "module_settings", "users", "invitations"}
+NO_USER_ID_EXPECTED = {
+    "alembic_version", "instance_settings", "module_settings", "users", "invitations", "oauth_clients"
+}
 SECURED_WITHOUT_USER_ID = {"invitations"}
 
 # The complete, reviewed SECURITY DEFINER inventory: name -> argument list.
@@ -22,6 +24,10 @@ REVIEWED_DEFINER_FUNCTIONS = {
     "admin_list_invitations": "",
     "admin_revoke_invitation": "p_invitation_id text",
     "authenticate_api_token": "p_token_hash text",
+    "authenticate_oauth_access": "p_token_hash text, p_resource text",
+    "oauth_lookup_code": "p_hash text",
+    "oauth_lookup_refresh": "p_hash text",
+    "oauth_revoke_token": "p_hash text",
     "consume_invitation": "p_token_hash text, p_user_id text",
     "invitation_is_valid": "p_token_hash text",
     "users_with_due_tasks": "p_now timestamp with time zone",

@@ -4,15 +4,18 @@
 	import {
 		createToken,
 		DEFAULT_EXPIRY_DAYS,
+		getOAuthGrants,
 		getTokens,
 		isExpired,
 		MAX_EXPIRY_DAYS,
 		mcpEndpoint,
 		revokeToken,
+		revokeOAuthGrant,
 		TOKEN_SCOPES,
 		TokenLimitError,
 		type ApiToken,
 		type CreatedToken,
+		type OAuthGrant,
 		type TokenScope
 	} from '$lib/api/tokens';
 	import { formatDate } from '$lib/i18n';
@@ -21,6 +24,7 @@
 
 	const t = getT();
 	let tokens = $state<ApiToken[]>([]);
+	let grants = $state<OAuthGrant[]>([]);
 	let created = $state<CreatedToken | null>(null);
 	let name = $state('');
 	let expiresInDays = $state(String(DEFAULT_EXPIRY_DAYS));
@@ -33,7 +37,7 @@
 
 	onMount(async () => {
 		try {
-			tokens = await getTokens();
+			[tokens, grants] = await Promise.all([getTokens(), getOAuthGrants()]);
 		} catch {
 			errorKey = 'common.error';
 		} finally {
@@ -59,6 +63,20 @@
 			expiresInDays = String(DEFAULT_EXPIRY_DAYS);
 		} catch (error) {
 			errorKey = error instanceof TokenLimitError ? 'tokens.limit' : 'common.error';
+		} finally {
+			busyId = '';
+		}
+	}
+
+	async function removeGrant(grant: OAuthGrant) {
+		if (!confirm(t('oauth.grants.revokeConfirm', { name: grant.client_name }))) return;
+		busyId = grant.id;
+		errorKey = null;
+		try {
+			await revokeOAuthGrant(grant.id);
+			grants = grants.filter((item) => item.id !== grant.id);
+		} catch {
+			errorKey = 'common.error';
 		} finally {
 			busyId = '';
 		}
@@ -159,6 +177,29 @@
 							</span>
 						</div>
 						<Button variant="quiet" disabled={busyId === token.id} onclick={() => removeToken(token)}>{t('tokens.revoke')}</Button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+
+	<section class="glass-panel section" aria-labelledby="oauth-grants-title">
+		<h2 id="oauth-grants-title">{t('oauth.grants.title')}</h2>
+		{#if loading}
+			<p>{t('common.loading')}</p>
+		{:else if grants.length === 0}
+			<p>{t('oauth.grants.empty')}</p>
+		{:else}
+			<ul class="token-list">
+				{#each grants as grant (grant.id)}
+					<li>
+						<div class="meta">
+							<strong>{grant.client_name}</strong>
+							<span class="prefix">{grant.resource}</span>
+							<span class="scopes">{grant.scopes.map((scope) => t(`tokens.scope.${scope}`)).join(', ')}</span>
+							<span class="dates">{t('oauth.grants.expires', { date: fmt(grant.expires_at) })}</span>
+						</div>
+						<Button variant="quiet" disabled={busyId === grant.id} onclick={() => removeGrant(grant)}>{t('tokens.revoke')}</Button>
 					</li>
 				{/each}
 			</ul>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { login, register, type AuthError } from '$lib/api/client';
 	import { getT } from '$lib/i18n/context';
 	import { Alert, Button, TextField } from '$lib/ui';
@@ -23,7 +24,15 @@
 		busy = true;
 		error = await login(email, password);
 		busy = false;
-		if (!error) await goto('/', { invalidateAll: true });
+		if (!error) {
+			const returnTo = new URL(page.url.searchParams.get('returnTo') ?? '/', page.url.origin);
+			await goto(
+				returnTo.origin === page.url.origin
+					? `${returnTo.pathname}${returnTo.search}${returnTo.hash}`
+					: '/',
+				{ invalidateAll: true }
+			);
+		}
 	}
 </script>
 

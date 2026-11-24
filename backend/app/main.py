@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from redis.asyncio import Redis
 
+from app.api.oauth import router as oauth_router
 from app.api.routes import router
 from app.auth.csrf import csrf_middleware
 from app.auth.manager import RegistrationClosedError
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(router)
+    app.include_router(oauth_router)
     app.include_router(mcp_router)
     return app
 
