@@ -18,6 +18,9 @@ SECURED_WITHOUT_USER_ID = {"invitations"}
 
 # The complete, reviewed SECURITY DEFINER inventory: name -> argument list.
 REVIEWED_DEFINER_FUNCTIONS = {
+    "admin_list_audit_entries": "p_before_created_at timestamp with time zone, p_before_id text, p_row_limit integer",
+    "admin_list_invitations": "",
+    "admin_revoke_invitation": "p_invitation_id text",
     "authenticate_api_token": "p_token_hash text",
     "consume_invitation": "p_token_hash text, p_user_id text",
     "invitation_is_valid": "p_token_hash text",
@@ -104,6 +107,14 @@ async def test_security_definer_inventory_is_exactly_the_reviewed_set(owner_engi
         assert function["acl"] and "{=" not in function["acl"] and ",=" not in function["acl"], function["name"]
         assert f"{app_role}=X/" in function["acl"], function["name"]
         assert function["owner"] != app_role
+        grants = await _rows(
+            owner_engine,
+            "SELECT r.rolname FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a "
+            "JOIN pg_roles r ON r.oid = a.grantee "
+            "WHERE p.proname = :name AND a.privilege_type = 'EXECUTE'",
+            name=function["name"],
+        )
+        assert {row["rolname"] for row in grants} == {app_role, function["owner"]}, function["name"]
 
 
 @pytest.mark.parametrize("table", ["api_tokens", "usage_records", "audit_log"])

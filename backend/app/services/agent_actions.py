@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AgentAction, User
-from app.services import agent_tools, module_settings
+from app.services import agent_tools, audit, module_settings
 from app.storage.base import Storage
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,9 @@ async def decide(
     if not approve:
         action.status = "rejected"
         await session.flush()
+        await audit.record(
+            session, user, "agent.action.reject", "agent_action", action.id, actor="user"
+        )
         return action
     action.status = "failed"
     tool = agent_tools.REGISTRY.get(action.tool)

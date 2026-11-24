@@ -258,6 +258,7 @@
 			<h1>{t('chat.conversations')}</h1>
 			<Button variant="quiet" onclick={startNew} disabled={streaming}>{t('chat.new')}</Button>
 			<a class="memory-link" href="/chat/memories">{t('chat.memoryLink')}</a>
+			<a class="memory-link" href="/chat/audit">{t('chat.audit.link')}</a>
 		</div>
 		{#if loading}
 			<p class="muted">{t('common.loading')}</p>

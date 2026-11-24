@@ -5,7 +5,7 @@ import httpx
 from sqlalchemy import select, text
 
 from app.db.models import Invitation
-from app.db.session import get_sessionmaker, set_user_context
+from app.db.session import get_sessionmaker, set_user_context, user_session
 from tests.helpers import PASSWORD, register
 from tests.helpers import login as _login
 
@@ -136,7 +136,7 @@ async def test_duplicate_registration_does_not_consume_invitation(
     assert subsequent.status_code == 201
 
 
-async def test_user_cannot_read_or_revoke_another_admins_invitations(
+async def test_admins_can_read_and_revoke_each_others_invitations_but_rls_stays_scoped(
     client: httpx.AsyncClient, settings, owner_engine
 ) -> None:
     admin = await _admin(client, settings)
@@ -149,8 +149,8 @@ async def test_user_cannot_read_or_revoke_another_admins_invitations(
             text("UPDATE users SET is_superuser = true WHERE id = :id"), {"id": member.json()["id"]}
         )
     await login(client, "second-admin@example.com")
-    assert (await client.get("/api/v1/invitations")).json() == []
-    assert (await client.delete(f"/api/v1/invitations/{invitation['id']}")).status_code == 404
+    assert [row["id"] for row in (await client.get("/api/v1/invitations")).json()] == [invitation["id"]]
+    assert (await client.delete(f"/api/v1/invitations/{invitation['id']}")).status_code == 204
 
     async with get_sessionmaker()() as session, session.begin():
         await set_user_context(session, member.json()["id"])
@@ -160,8 +160,28 @@ async def test_user_cannot_read_or_revoke_another_admins_invitations(
     assert row is None
 
     await login(client, "admin@example.com")
-    assert [row["id"] for row in (await client.get("/api/v1/invitations")).json()] == [invitation["id"]]
+    assert (await client.get("/api/v1/invitations")).json() == []
     assert admin["role"] == "admin"
+
+
+async def test_admin_invitation_functions_require_active_admin_context(
+    client: httpx.AsyncClient, settings, owner_engine
+) -> None:
+    await _admin(client, settings)
+    invitation = await _invitation(client)
+    settings.registration_mode = "open"
+    member = await register(client, "invitation-member@example.com")
+    async with user_session(member.json()["id"]) as session:
+        assert (await session.execute(text("SELECT * FROM admin_list_invitations()"))).all() == []
+        assert await session.scalar(
+            text("SELECT admin_revoke_invitation(:invitation_id)"),
+            {"invitation_id": invitation["id"]},
+        ) is False
+    async with owner_engine.connect() as connection:
+        exists = await connection.scalar(
+            select(Invitation.id).where(Invitation.id == invitation["id"])
+        )
+    assert exists == invitation["id"]
 
 
 async def test_public_cannot_execute_invitation_functions(owner_engine) -> None:
@@ -172,7 +192,8 @@ async def test_public_cannot_execute_invitation_functions(owner_engine) -> None:
                     SELECT 1 FROM pg_proc p, LATERAL aclexplode(
                         coalesce(p.proacl, acldefault('f', p.proowner))
                     ) a
-                    WHERE p.proname IN ('invitation_is_valid', 'consume_invitation')
+                    WHERE p.proname IN ('invitation_is_valid', 'consume_invitation',
+                        'admin_list_invitations', 'admin_revoke_invitation')
                       AND a.grantee = 0 AND a.privilege_type = 'EXECUTE'
                 )"""
             )

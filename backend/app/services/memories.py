@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Memory, User
+from app.services import audit
 
 MAX_MEMORIES = 200
 MAX_CONTENT_LENGTH = 1000
@@ -52,6 +53,7 @@ async def update_memory(session: AsyncSession, user: User, memory_id: str, conte
     memory.content = content
     memory.updated_at = datetime.now(UTC)
     await session.flush()
+    await audit.record(session, user, "memory.update", "memory", memory.id, actor="user")
     return memory
 
 
@@ -59,8 +61,10 @@ async def delete_memory(session: AsyncSession, user: User, memory_id: str) -> bo
     memory = await get_memory(session, user, memory_id)
     if memory is None:
         return False
+    memory_id = memory.id
     await session.delete(memory)
     await session.flush()
+    await audit.record(session, user, "memory.delete", "memory", memory_id, actor="user")
     return True
 
 

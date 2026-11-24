@@ -3,6 +3,7 @@ import { createApiClient } from './http';
 
 export type Memory = components['schemas']['MemoryOut'];
 export type AgentAction = components['schemas']['AgentActionOut'];
+export type AgentAuditEntry = components['schemas']['AuditEntryOut'];
 export type WriteMode = components['schemas']['AgentSettingsOut']['write_mode'];
 
 /** A source the assistant relied on; `ref` matches the [n] markers in the answer. */
@@ -55,6 +56,12 @@ export async function setWriteMode(writeMode: WriteMode): Promise<WriteMode> {
 	const { data, response } = await api.PUT('/api/v1/agent/settings', { body: { write_mode: writeMode } });
 	assertOk(response);
 	return (data as { write_mode: WriteMode }).write_mode;
+}
+
+export async function listAgentAudit(): Promise<AgentAuditEntry[]> {
+	const { data, response } = await api.GET('/api/v1/agent/audit');
+	assertOk(response);
+	return data as AgentAuditEntry[];
 }
 
 export async function listActions(conversationId: string): Promise<AgentAction[]> {
