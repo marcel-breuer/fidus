@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { ModuleEntry } from '$lib/api/types';
-	import type { MessageKey } from '$lib/i18n';
-	import { getT } from '$lib/i18n/context';
+	import type { ModuleEntry } from '#lib/api/types.ts';
+	import type { MessageKey } from '#lib/i18n/index.ts';
+	import { getT } from '#lib/i18n/context.ts';
 	import Icon from './Icon.svelte';
 
 	let { modules, current = '', admin = false }: { modules: ModuleEntry[]; current?: string; admin?: boolean } = $props();

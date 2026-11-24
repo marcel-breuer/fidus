@@ -17,10 +17,10 @@
 		type CreatedToken,
 		type OAuthGrant,
 		type TokenScope
-	} from '$lib/api/tokens';
-	import { formatDate } from '$lib/i18n';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button, TextField } from '$lib/ui';
+	} from '#lib/api/tokens.ts';
+	import { formatDate } from '#lib/i18n/index.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button, TextField } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let tokens = $state<ApiToken[]>([]);

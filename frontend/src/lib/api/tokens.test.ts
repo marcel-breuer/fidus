@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isExpired, mcpEndpoint, TOKEN_SCOPES } from './tokens';
-import { messages } from '$lib/i18n';
+import { messages } from '#lib/i18n/index.ts';
 
 describe('token helpers', () => {
 	it('treats a token as expired once its expiry time has passed', () => {

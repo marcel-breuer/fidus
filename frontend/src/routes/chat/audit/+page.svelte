@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { listAgentAudit, type AgentAuditEntry } from '$lib/api/agent';
-	import { formatDate } from '$lib/i18n';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button } from '$lib/ui';
+	import { listAgentAudit, type AgentAuditEntry } from '#lib/api/agent.ts';
+	import { formatDate } from '#lib/i18n/index.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let entries = $state<AgentAuditEntry[]>([]);
