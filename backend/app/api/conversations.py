@@ -7,15 +7,21 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.deps import get_chat_provider, get_embedding_provider, get_web_search_provider
-from app.ai.providers import ChatProvider, EmbeddingProvider, WebSearchProvider
+from app.ai.deps import (
+    get_chat_provider,
+    get_embedding_provider,
+    get_speech_provider,
+    get_transcription_provider,
+    get_web_search_provider,
+)
+from app.ai.providers import ChatProvider, EmbeddingProvider, SpeechProvider, TranscriptionProvider, WebSearchProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
 from app.auth.rate_limit import enforce_user_rate_limit
 from app.db.models import Conversation, Message, MessageAttachment, User
 from app.modules.guard import require_module
 from app.services import chat as chat_service
-from app.services import chat_attachments
+from app.services import chat_attachments, chat_audio
 from app.services import conversations as service
 from app.storage.base import Storage
 from app.storage.deps import get_storage
@@ -98,6 +104,10 @@ class SearchResult(BaseModel):
 class ChatMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20_000)
     attachment_ids: list[str] = Field(default_factory=list, max_length=chat_attachments.MAX_ATTACHMENTS_PER_MESSAGE)
+
+
+class DictationOut(BaseModel):
+    text: str
 
 
 def _sse(event: str, payload: dict[str, object]) -> str:
@@ -184,6 +194,67 @@ async def stream_message(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post(
+    "/conversations/{conversation_id}/dictation",
+    response_model=DictationOut,
+    responses={429: {"description": "Per-user transcription limit exceeded"}},
+    dependencies=[Depends(enforce_user_rate_limit("transcription"))],
+)
+async def transcribe_dictation(
+    conversation_id: str,
+    file: UploadFile = File(...),
+    language: str | None = None,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    provider: TranscriptionProvider = Depends(get_transcription_provider),
+) -> DictationOut:
+    if not await chat_audio.ensure_conversation_access(session, user, conversation_id):
+        raise HTTPException(status_code=404, detail="CONVERSATION_NOT_FOUND")
+    data = await file.read(chat_audio.MAX_DICTATION_BYTES + 1)
+    try:
+        text = await chat_audio.transcribe_dictation(user.id, data, file.filename or "", provider, language)
+        return DictationOut(text=text)
+    except chat_audio.ChatAudioError as exc:
+        status = {
+            "UNSUPPORTED_TYPE": 415, "FILE_TOO_LARGE": 413, "CLIP_TOO_LONG": 413,
+            "EMPTY_FILE": 422, "EMPTY_TRANSCRIPT": 422, "INVALID_LANGUAGE": 422,
+            "CORRUPT_AUDIO": 422, "FFMPEG_UNAVAILABLE": 503,
+            "TRANSCRIPTION_FAILED": 502, "AUDIO_PROCESSING_FAILED": 422,
+        }.get(exc.code, 422)
+        raise HTTPException(status_code=status, detail=exc.code) from exc
+    finally:
+        await file.close()
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages/{message_id}/speech",
+    responses={
+        200: {"content": {"audio/wav": {"schema": {"type": "string", "format": "binary"}}}},
+        429: {"description": "Per-user chat request limit exceeded"},
+    },
+    dependencies=[Depends(enforce_user_rate_limit("chat"))],
+)
+async def post_message_speech(
+    conversation_id: str,
+    message_id: str,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
+    speech: SpeechProvider = Depends(get_speech_provider),
+) -> Response:
+    try:
+        download = await chat_audio.get_message_speech(
+            session, storage, user, conversation_id, message_id, speech
+        )
+    except chat_audio.ChatAudioError as exc:
+        status = {"TEXT_TOO_LONG": 413, "NO_MESSAGE_CONTENT": 409, "SPEECH_FAILED": 502}.get(exc.code, 400)
+        raise HTTPException(status_code=status, detail=exc.code) from exc
+    if download is None:
+        raise HTTPException(status_code=404, detail="MESSAGE_NOT_FOUND")
+    body = b"".join([block async for block in download.stream])
+    return Response(content=body, media_type="audio/wav", headers={"X-Content-Type-Options": "nosniff"})
 
 
 @router.post(
@@ -311,8 +382,9 @@ async def remove_conversation(
     conversation_id: str,
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
 ) -> Response:
-    if not await service.delete_conversation(session, user, conversation_id):
+    if not await service.delete_conversation(session, user, conversation_id, storage):
         raise HTTPException(status_code=404, detail="CONVERSATION_NOT_FOUND")
     return Response(status_code=204)
 
