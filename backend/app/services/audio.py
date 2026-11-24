@@ -1,9 +1,7 @@
 """Per-user voice memo operations shared by REST routes and the worker."""
 
-import io
 import logging
 import unicodedata
-import wave
 from collections.abc import AsyncIterator
 from typing import NamedTuple
 
@@ -13,29 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.providers import SpeechProvider
 from app.db.base import new_id
 from app.db.models import Chunk, Document, Memo, User
+from app.services.audio_formats import TYPES as _TYPES
+from app.services.audio_formats import matches_signature as _matches_signature
 from app.services.extraction import chunk_text
+from app.services.speech import MAX_SPEECH_CHARS, SPEECH_CHUNK_CHARS
+from app.services.speech import join_wav as _join_wav
 from app.storage.base import Storage, StorageTooLarge
 
 logger = logging.getLogger(__name__)
 
 MAX_MEMO_BYTES = 100 * 1024 * 1024
-MAX_SPEECH_CHARS = 12000
-SPEECH_CHUNK_CHARS = 3500
-
-_TYPES = {
-    ".webm": "audio/webm",
-    ".ogg": "audio/ogg",
-    ".oga": "audio/ogg",
-    ".mp3": "audio/mpeg",
-    ".mpga": "audio/mpeg",
-    ".mpeg": "audio/mpeg",
-    ".m4a": "audio/mp4",
-    ".mp4": "audio/mp4",
-    ".wav": "audio/wav",
-    ".flac": "audio/flac",
-}
-_EXTENSIONS = {mime: ext for ext, mime in reversed(list(_TYPES.items()))}
-
 
 class AudioError(Exception):
     def __init__(self, code: str) -> None:
@@ -46,26 +31,6 @@ class AudioError(Exception):
 class AudioDownload(NamedTuple):
     memo: Memo
     stream: AsyncIterator[bytes]
-
-
-def extension_for_mime(mime_type: str) -> str:
-    return _EXTENSIONS.get(mime_type, ".bin")
-
-
-def _matches_signature(extension: str, head: bytes) -> bool:
-    if extension == ".webm":
-        return head.startswith(b"\x1a\x45\xdf\xa3")
-    if extension in {".ogg", ".oga"}:
-        return head.startswith(b"OggS")
-    if extension in {".mp3", ".mpga", ".mpeg"}:
-        return head.startswith(b"ID3") or (len(head) > 1 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0)
-    if extension in {".m4a", ".mp4"}:
-        return head[4:8] == b"ftyp"
-    if extension == ".wav":
-        return head.startswith(b"RIFF") and head[8:12] == b"WAVE"
-    if extension == ".flac":
-        return head.startswith(b"fLaC")
-    return False
 
 
 def _clean(value: str, limit: int) -> str:
@@ -217,23 +182,6 @@ async def get_audio(session: AsyncSession, storage: Storage, user: User, memo_id
     if found is None:
         return None
     return AudioDownload(found[0], storage.open(found[0].audio_key))
-
-
-def _join_wav(parts: list[bytes]) -> bytes:
-    if len(parts) == 1:
-        return parts[0]
-    frames = bytearray()
-    params = None
-    for part in parts:
-        with wave.open(io.BytesIO(part)) as source:
-            params = params or source.getparams()
-            frames.extend(source.readframes(source.getnframes()))
-    assert params is not None
-    out = io.BytesIO()
-    with wave.open(out, "wb") as target:
-        target.setparams(params)
-        target.writeframes(bytes(frames))
-    return out.getvalue()
 
 
 async def get_speech(

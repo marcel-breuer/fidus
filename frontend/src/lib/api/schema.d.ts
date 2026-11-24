@@ -420,6 +420,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/conversations/{conversation_id}/dictation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transcribe Dictation */
+        post: operations["transcribe_dictation_api_v1_conversations__conversation_id__dictation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/conversations/{conversation_id}/messages": {
         parameters: {
             query?: never;
@@ -448,6 +465,23 @@ export interface paths {
         put?: never;
         /** Stream Message */
         post: operations["stream_message_api_v1_conversations__conversation_id__messages_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{conversation_id}/messages/{message_id}/speech": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Message Speech */
+        post: operations["post_message_speech_api_v1_conversations__conversation_id__messages__message_id__speech_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1149,6 +1183,11 @@ export interface components {
             /** Parent Id */
             parent_id?: string | null;
         };
+        /** Body_transcribe_dictation_api_v1_conversations__conversation_id__dictation_post */
+        Body_transcribe_dictation_api_v1_conversations__conversation_id__dictation_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_attachment_api_v1_conversations__conversation_id__attachments_post */
         Body_upload_attachment_api_v1_conversations__conversation_id__attachments_post: {
             /** File */
@@ -1222,6 +1261,11 @@ export interface components {
         ConversationRename: {
             /** Title */
             title: string;
+        };
+        /** DictationOut */
+        DictationOut: {
+            /** Text */
+            text: string;
         };
         /** DocumentStatusOut */
         DocumentStatusOut: {
@@ -2817,6 +2861,50 @@ export interface operations {
             };
         };
     };
+    transcribe_dictation_api_v1_conversations__conversation_id__dictation_post: {
+        parameters: {
+            query?: {
+                language?: string | null;
+            };
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_transcribe_dictation_api_v1_conversations__conversation_id__dictation_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DictationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Per-user transcription limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_messages_api_v1_conversations__conversation_id__messages_get: {
         parameters: {
             query?: {
@@ -2873,6 +2961,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Per-user chat request limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    post_message_speech_api_v1_conversations__conversation_id__messages__message_id__speech_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "audio/wav": string;
                 };
             };
             /** @description Validation Error */
