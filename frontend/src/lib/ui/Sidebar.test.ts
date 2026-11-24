@@ -1,7 +1,7 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
-import type { ModuleEntry } from '$lib/api/types';
-import { translate, type Locale } from '$lib/i18n';
+import type { ModuleEntry } from '#lib/api/types.ts';
+import { translate, type Locale } from '#lib/i18n/index.ts';
 import Harness from './SidebarHarness.test.svelte';
 
 const modules: ModuleEntry[] = [

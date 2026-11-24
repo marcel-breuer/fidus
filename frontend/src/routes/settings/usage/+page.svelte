@@ -11,9 +11,9 @@
 		USAGE_PERIODS,
 		type Usage,
 		type UsagePeriod
-	} from '$lib/api/usage';
-	import { getT } from '$lib/i18n/context';
-	import { Alert, Button } from '$lib/ui';
+	} from '#lib/api/usage.ts';
+	import { getT } from '#lib/i18n/context.ts';
+	import { Alert, Button } from '#lib/ui/index.ts';
 
 	const t = getT();
 	let usage = $state<Usage | null>(null);

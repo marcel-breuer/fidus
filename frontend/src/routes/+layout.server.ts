@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { loadModules, loadUser } from '$lib/api/server';
+import { loadModules, loadUser } from '#lib/api/server.ts';
 import type { LayoutServerLoad } from './$types';
 
 const PUBLIC_PATHS = ['/login', '/register'];
