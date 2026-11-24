@@ -1756,6 +1756,115 @@
         "title": "TaskUpdate",
         "type": "object"
       },
+      "TextFileCreate": {
+        "properties": {
+          "content": {
+            "maxLength": 26214400,
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "name",
+          "content"
+        ],
+        "title": "TextFileCreate",
+        "type": "object"
+      },
+      "TextFileOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "parent_id",
+          "kind",
+          "name",
+          "created_at",
+          "updated_at",
+          "version"
+        ],
+        "title": "TextFileOut",
+        "type": "object"
+      },
+      "TextFileUpdate": {
+        "properties": {
+          "content": {
+            "maxLength": 26214400,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "TextFileUpdate",
+        "type": "object"
+      },
       "TokenCreate": {
         "properties": {
           "expires_in_days": {
@@ -4233,6 +4342,63 @@
         ]
       }
     },
+    "/api/v1/files/nodes/{node_id}/text": {
+      "put": {
+        "operationId": "put_text_file_api_v1_files_nodes__node_id__text_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextFileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextFileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Put Text File",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/api/v1/files/nodes/{node_id}/versions": {
       "get": {
         "operationId": "get_versions_api_v1_files_nodes__node_id__versions_get",
@@ -4279,6 +4445,52 @@
           }
         ],
         "summary": "Get Versions",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/api/v1/files/text": {
+      "post": {
+        "operationId": "post_text_file_api_v1_files_text_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextFileCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextFileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Post Text File",
         "tags": [
           "files"
         ]

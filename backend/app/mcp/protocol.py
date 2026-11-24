@@ -1,12 +1,13 @@
 """Minimal MCP (streamable HTTP, JSON responses only) JSON-RPC dispatcher.
 
-The server is stateless: no sessions, no server-initiated messages, tools only."""
+The server is stateless: no sessions or server-initiated messages."""
 
 import json
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.providers import EmbeddingProvider
 from app.mcp.auth import McpPrincipal
 from app.mcp.tools import TOOLS, TOOLS_BY_NAME, Tool, ToolContext, ToolError
-from app.services import usage
+from app.services import audio, files, usage
 from app.services.module_settings import enabled_module_keys
+from app.storage.base import Storage
 
 LATEST_PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_PROTOCOL_VERSIONS = (LATEST_PROTOCOL_VERSION, "2025-03-26", "2024-11-05")
@@ -27,6 +29,8 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INSUFFICIENT_SCOPE = -32001
 MODULE_DISABLED = -32002
+RESOURCE_UNAVAILABLE = -32003
+RESOURCE_NOT_FOUND = -32004
 
 
 class JsonRpcError(Exception):
@@ -48,6 +52,7 @@ class McpContext:
     principal: McpPrincipal
     open_session: Callable[[], AbstractAsyncContextManager[AsyncSession]]
     embedder: EmbeddingProvider
+    storage: Storage
 
 
 def _tool_allowed(tool: Tool, principal: McpPrincipal) -> bool:
@@ -59,7 +64,7 @@ async def _initialize(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]
     version = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else LATEST_PROTOCOL_VERSION
     return {
         "protocolVersion": version,
-        "capabilities": {"tools": {"listChanged": False}},
+        "capabilities": {"tools": {"listChanged": False}, "resources": {"listChanged": False}},
         "serverInfo": {**SERVER_INFO, "version": _server_version()},
     }
 
@@ -106,7 +111,8 @@ async def _tools_call(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]
                 raise JsonRpcError(MODULE_DISABLED, "MODULE_DISABLED", {"module": tool.module})
             result = await tool.handler(
                 ToolContext(
-                    session=session, user=ctx.principal.user, embedder=ctx.embedder, token_id=ctx.principal.token_id
+                    session=session, user=ctx.principal.user, embedder=ctx.embedder,
+                    storage=ctx.storage, token_id=ctx.principal.token_id
                 ), parsed
             )
     except ToolError as exc:
@@ -122,11 +128,76 @@ async def _ping(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]:
     return {}
 
 
+async def _resources_list(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]:
+    async with ctx.open_session() as session:
+        enabled = await enabled_module_keys(session)
+        resources: list[dict[str, Any]] = []
+        if "files:read" in ctx.principal.scopes and "files" in enabled:
+            for node in await files.list_all_files(session, ctx.principal.user):
+                resources.append({
+                    "uri": f"fidus://files/{node.id}",
+                    "name": node.name,
+                    "mimeType": "text/plain",
+                    "description": "User file content",
+                })
+        if "audio:read" in ctx.principal.scopes and "audio" in enabled:
+            for memo, _document in await audio.list_memos(session, ctx.principal.user):
+                resources.append({
+                    "uri": f"fidus://memos/{memo.id}",
+                    "name": memo.title,
+                    "mimeType": "text/plain",
+                    "description": "Voice memo transcript",
+                })
+    return {"resources": resources}
+
+
+async def _resources_read(params: dict[str, Any], ctx: McpContext) -> dict[str, Any]:
+    uri = params.get("uri")
+    if not isinstance(uri, str):
+        raise JsonRpcError(INVALID_PARAMS, "INVALID_URI")
+    parsed = urlsplit(uri)
+    if parsed.scheme != "fidus" or parsed.query or parsed.fragment:
+        raise JsonRpcError(INVALID_PARAMS, "INVALID_URI")
+    resource_id = parsed.path.removeprefix("/")
+    if not resource_id or "/" in resource_id or not parsed.netloc:
+        raise JsonRpcError(INVALID_PARAMS, "INVALID_URI")
+    if parsed.netloc == "files":
+        required_scope, module = "files:read", "files"
+    elif parsed.netloc == "memos":
+        required_scope, module = "audio:read", "audio"
+    else:
+        raise JsonRpcError(INVALID_PARAMS, "INVALID_URI")
+    if required_scope not in ctx.principal.scopes:
+        raise JsonRpcError(INSUFFICIENT_SCOPE, "INSUFFICIENT_SCOPE", {"required_scope": required_scope})
+    async with ctx.open_session() as session:
+        if module not in await enabled_module_keys(session):
+            raise JsonRpcError(MODULE_DISABLED, "MODULE_DISABLED", {"module": module})
+        if module == "files":
+            try:
+                found = await files.read_text_content(session, ctx.storage, ctx.principal.user, resource_id)
+            except files.FilesError as exc:
+                raise JsonRpcError(RESOURCE_UNAVAILABLE, exc.code) from exc
+            if found is None:
+                raise JsonRpcError(RESOURCE_NOT_FOUND, "RESOURCE_NOT_FOUND")
+            content = found[1]
+        else:
+            found = await audio.get_memo(session, ctx.principal.user, resource_id)
+            if found is None:
+                raise JsonRpcError(RESOURCE_NOT_FOUND, "RESOURCE_NOT_FOUND")
+            memo, document = found
+            if document is None or document.content is None:
+                raise JsonRpcError(RESOURCE_UNAVAILABLE, "TRANSCRIPT_NOT_READY")
+            content = document.content
+    return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": content}]}
+
+
 _METHODS = {
     "initialize": _initialize,
     "ping": _ping,
     "tools/list": _tools_list,
     "tools/call": _tools_call,
+    "resources/list": _resources_list,
+    "resources/read": _resources_read,
 }
 
 

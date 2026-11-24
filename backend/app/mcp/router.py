@@ -17,6 +17,8 @@ from app.mcp.protocol import (
     McpContext,
     handle_message,
 )
+from app.storage.base import Storage
+from app.storage.deps import get_storage
 
 MAX_BODY_BYTES = 1024 * 1024
 
@@ -42,7 +44,11 @@ def _error(code: int, message: str, status: int) -> JSONResponse:
 
 @router.post("")
 @router.post("/")
-async def post_mcp(request: Request, principal: McpPrincipal = Depends(current_mcp_principal)) -> Response:
+async def post_mcp(
+    request: Request,
+    principal: McpPrincipal = Depends(current_mcp_principal),
+    storage: Storage = Depends(get_storage),
+) -> Response:
     version = request.headers.get("mcp-protocol-version")
     if version is not None and version not in SUPPORTED_PROTOCOL_VERSIONS:
         return _error(INVALID_REQUEST, "Unsupported MCP-Protocol-Version", 400)
@@ -60,6 +66,7 @@ async def post_mcp(request: Request, principal: McpPrincipal = Depends(current_m
         principal=principal,
         open_session=lambda: user_session(principal.user.id),
         embedder=_LazyEmbedder(request),
+        storage=storage,
     )
     response = await handle_message(message, ctx)
     if response is None:

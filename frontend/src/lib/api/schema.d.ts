@@ -557,6 +557,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/files/nodes/{node_id}/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Text File */
+        put: operations["put_text_file_api_v1_files_nodes__node_id__text_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files/nodes/{node_id}/versions": {
         parameters: {
             query?: never;
@@ -568,6 +585,23 @@ export interface paths {
         get: operations["get_versions_api_v1_files_nodes__node_id__versions_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Text File */
+        post: operations["post_text_file_api_v1_files_text_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1545,6 +1579,45 @@ export interface components {
             remind_at?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /** TextFileCreate */
+        TextFileCreate: {
+            /** Content */
+            content: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /** TextFileOut */
+        TextFileOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /** TextFileUpdate */
+        TextFileUpdate: {
+            /** Content */
+            content: string;
         };
         /** TokenCreate */
         TokenCreate: {
@@ -3043,6 +3116,41 @@ export interface operations {
             };
         };
     };
+    put_text_file_api_v1_files_nodes__node_id__text_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextFileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextFileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_versions_api_v1_files_nodes__node_id__versions_get: {
         parameters: {
             query?: never;
@@ -3061,6 +3169,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_text_file_api_v1_files_text_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextFileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextFileOut"];
                 };
             };
             /** @description Validation Error */
