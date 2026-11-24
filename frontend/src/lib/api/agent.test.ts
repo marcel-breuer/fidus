@@ -15,13 +15,14 @@ describe('parseSources', () => {
 	it('keeps well-formed entries ordered by ref and drops the rest', () => {
 		const parsed = parseSources([
 			{ type: 'web', ref: 2, title: 'B', url: 'https://b.test' },
+			{ type: 'attachment', ref: 3, filename: 'plan.pdf' },
 			{ type: 'file', ref: 1, file_name: 'a.txt', node_id: 'n1', folder_id: null, version: 1, position: 0, snippet: 's' },
 			{ type: 'web', ref: 3, title: 'no url' },
 			{ type: 'unknown', ref: 4 },
 			null,
 			'text'
 		]);
-		expect(parsed.map((item) => item.ref)).toEqual([1, 2]);
+		expect(parsed.map((item) => item.ref)).toEqual([1, 2, 3]);
 	});
 
 	it('treats missing or malformed citations as empty', () => {

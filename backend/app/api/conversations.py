@@ -2,7 +2,7 @@ import json
 from collections.abc import AsyncIterator
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +11,10 @@ from app.ai.deps import get_chat_provider, get_embedding_provider, get_web_searc
 from app.ai.providers import ChatProvider, EmbeddingProvider, WebSearchProvider
 from app.api.deps import get_user_scoped_session
 from app.auth.manager import current_active_user
-from app.db.models import Conversation, Message, User
+from app.db.models import Conversation, Message, MessageAttachment, User
 from app.modules.guard import require_module
 from app.services import chat as chat_service
+from app.services import chat_attachments
 from app.services import conversations as service
 from app.storage.base import Storage
 from app.storage.deps import get_storage
@@ -43,6 +44,17 @@ class ConversationOut(BaseModel):
         return cls(id=item.id, title=item.title, created_at=item.created_at, updated_at=item.updated_at)
 
 
+class AttachmentOut(BaseModel):
+    id: str
+    filename: str
+    mime_type: str
+    size_bytes: int
+
+    @classmethod
+    def from_model(cls, item: MessageAttachment) -> "AttachmentOut":
+        return cls(id=item.id, filename=item.filename, mime_type=item.mime_type, size_bytes=item.size_bytes)
+
+
 class MessageOut(BaseModel):
     id: str
     conversation_id: str
@@ -53,6 +65,7 @@ class MessageOut(BaseModel):
     input_tokens: int | None
     output_tokens: int | None
     created_at: datetime
+    attachments: list[AttachmentOut] = Field(default_factory=list)
 
     @classmethod
     def from_model(cls, item: Message) -> "MessageOut":
@@ -61,6 +74,7 @@ class MessageOut(BaseModel):
             content=item.content, tool_calls=item.tool_calls, citations=item.citations,
             input_tokens=item.input_tokens, output_tokens=item.output_tokens,
             created_at=item.created_at,
+            attachments=[AttachmentOut.from_model(attachment) for attachment in item.attachments],
         )
 
 
@@ -82,6 +96,7 @@ class SearchResult(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20_000)
+    attachment_ids: list[str] = Field(default_factory=list, max_length=chat_attachments.MAX_ATTACHMENTS_PER_MESSAGE)
 
 
 def _sse(event: str, payload: dict[str, object]) -> str:
@@ -95,7 +110,9 @@ async def _chat_events(
     try:
         current: chat_service.ChatStreamEvent | None = initial
         while current is not None:
-            if isinstance(current, chat_service.UserMessageStored):
+            if isinstance(current, chat_service.ContextReady):
+                pass
+            elif isinstance(current, chat_service.UserMessageStored):
                 yield _sse("message", {
                     "id": current.id,
                     "conversation_id": current.conversation_id,
@@ -106,6 +123,7 @@ async def _chat_events(
                     "citations": None,
                     "input_tokens": None,
                     "output_tokens": None,
+                    "attachments": current.attachments,
                 })
             elif isinstance(current, chat_service.Delta):
                 yield _sse("delta", {"text": current.text})
@@ -136,13 +154,20 @@ async def stream_message(
     conversation_id: str,
     body: ChatMessageCreate,
     user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
     provider: ChatProvider = Depends(get_chat_provider),
     embedder: EmbeddingProvider = Depends(get_embedding_provider),
     web_search: WebSearchProvider | None = Depends(get_web_search_provider),
     storage: Storage = Depends(get_storage),
 ) -> StreamingResponse:
+    try:
+        await chat_attachments.validate_ids(session, user, conversation_id, body.attachment_ids)
+    except chat_attachments.AttachmentError as exc:
+        status = 404 if exc.code == "ATTACHMENT_NOT_FOUND" else 422
+        raise HTTPException(status_code=status, detail=exc.code) from exc
     events = chat_service.run_chat_turn(
-        user, conversation_id, body.content, provider, embedder=embedder, web_search=web_search, storage=storage
+        user, conversation_id, body.content, provider, embedder=embedder, web_search=web_search, storage=storage,
+        attachment_ids=body.attachment_ids,
     )
     try:
         initial = await events.__anext__()
@@ -154,6 +179,65 @@ async def stream_message(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/conversations/{conversation_id}/actions/{action_id}/continue")
+async def continue_after_action(
+    conversation_id: str,
+    action_id: str,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    provider: ChatProvider = Depends(get_chat_provider),
+    embedder: EmbeddingProvider = Depends(get_embedding_provider),
+    web_search: WebSearchProvider | None = Depends(get_web_search_provider),
+    storage: Storage = Depends(get_storage),
+) -> StreamingResponse:
+    from app.services import agent_actions
+
+    try:
+        notice = await agent_actions.outcome_context(session, user, conversation_id, action_id)
+    except agent_actions.ActionNotFound as exc:
+        raise HTTPException(status_code=404, detail="ACTION_NOT_FOUND") from exc
+    except agent_actions.ActionNotPending as exc:
+        raise HTTPException(status_code=409, detail="ACTION_NOT_PENDING") from exc
+    events = chat_service.run_chat_turn(
+        user, conversation_id, "", provider, embedder=embedder, web_search=web_search,
+        storage=storage, decision_notice=notice,
+    )
+    try:
+        initial = await events.__anext__()
+    except chat_service.NotFound as exc:
+        await events.aclose()
+        raise HTTPException(status_code=404, detail="CONVERSATION_NOT_FOUND") from exc
+    return StreamingResponse(
+        _chat_events(initial, events), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.post("/conversations/{conversation_id}/attachments", response_model=AttachmentOut, status_code=201)
+async def upload_attachment(
+    conversation_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_user_scoped_session),
+    storage: Storage = Depends(get_storage),
+) -> AttachmentOut:
+    filename = file.filename or ""
+    suffix = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    mime_type = {
+        "pdf": "application/pdf", "txt": "text/plain", "md": "text/markdown", "markdown": "text/markdown",
+        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp",
+    }.get(suffix)
+    if mime_type is None:
+        raise HTTPException(status_code=415, detail="UNSUPPORTED_TYPE")
+    content = await file.read(chat_attachments.MAX_ATTACHMENT_BYTES + 1)
+    try:
+        item = await chat_attachments.upload(session, storage, user, conversation_id, filename, mime_type, content)
+    except chat_attachments.AttachmentError as exc:
+        status = 404 if exc.code == "CONVERSATION_NOT_FOUND" else 413 if exc.code == "FILE_TOO_LARGE" else 422
+        raise HTTPException(status_code=status, detail=exc.code) from exc
+    return AttachmentOut(id=item.id, filename=item.filename, mime_type=item.mime_type, size_bytes=item.size_bytes)
 
 
 def _invalid_value(exc: ValueError) -> HTTPException:
