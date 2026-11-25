@@ -1,7 +1,16 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+
+/* Dark mode follows the system setting; there is no theme switcher. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
 /*
  * Glass: translucent surfaces with strong blur, a bright specular edge and a soft wide shadow.
  * The fixed colour field on the body is what the glass blurs. Solid surfaces are the baseline;
  * transparency is a progressive enhancement. Primary colour: #A4DDF5.
+ *
+ * Tokens (--glass-*) are the single source; the shadcn theme variables below point at them.
  */
 :root {
 	--brand: #a4ddf5;
@@ -20,19 +29,52 @@
 
 	--ink: #0f2530;
 	--muted: #3d5a69;
-	--accent: var(--brand);
 	--accent-ink: #0b2a38;
 	--accent-text: #0a5a7d;
 	--danger: #a4342a;
 	--danger-bg: #fbe9e6;
 	--focus: #0a5a7d;
 	--hover: var(--glass-tint);
-	--line: var(--glass-border);
 
 	--blob-1: color-mix(in srgb, var(--brand) 60%, transparent);
 	--blob-2: color-mix(in srgb, var(--brand-deep) 40%, transparent);
 	--blob-3: color-mix(in srgb, var(--brand) 45%, transparent);
 	color-scheme: light dark;
+
+	/*
+	 * shadcn theme variables. Legacy route styles still read --accent, --muted, --line and
+	 * --ink; those names keep their old meaning until the routes are migrated, so the
+	 * shadcn "muted" and "accent" surfaces are mapped in @theme below instead of here.
+	 */
+	--accent: var(--brand);
+	--line: var(--glass-border);
+	--background: var(--glass-solid);
+	--foreground: var(--ink);
+	--card: var(--glass-fill);
+	--card-foreground: var(--ink);
+	--popover: var(--glass-fill);
+	--popover-foreground: var(--ink);
+	--primary: var(--brand);
+	--primary-foreground: var(--accent-ink);
+	--secondary: var(--glass-inset-fill);
+	--secondary-foreground: var(--ink);
+	--surface-muted: var(--glass-inset-fill);
+	--surface-hover: var(--hover);
+	--muted-foreground: var(--muted);
+	--accent-foreground: var(--ink);
+	--destructive: var(--danger);
+	--border: var(--glass-border);
+	--input: var(--glass-border);
+	--ring: var(--focus);
+	--sidebar: transparent;
+	--sidebar-foreground: var(--ink);
+	--sidebar-primary: var(--brand);
+	--sidebar-primary-foreground: var(--accent-ink);
+	--sidebar-accent: var(--hover);
+	--sidebar-accent-foreground: var(--ink);
+	--sidebar-border: var(--glass-border);
+	--sidebar-ring: var(--focus);
+	--radius: 0.625rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -72,154 +114,11 @@
 	}
 }
 
-* {
-	box-sizing: border-box;
-}
-
-body {
-	margin: 0;
-	min-height: 100vh;
-	color: var(--ink);
-	font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-	line-height: 1.5;
-	background-color: var(--glass-solid);
-	background-image:
-		radial-gradient(60rem 40rem at 12% 8%, var(--blob-1), transparent 70%),
-		radial-gradient(52rem 38rem at 92% 28%, var(--blob-2), transparent 70%),
-		radial-gradient(56rem 40rem at 30% 92%, var(--blob-3), transparent 70%);
-	background-attachment: fixed;
-}
-
-h1 {
-	font-size: 1.4rem;
-	margin: 0 0 1rem;
-}
-
-a {
-	color: var(--accent-text);
-}
-
-:focus-visible {
-	outline: 3px solid var(--focus);
-	outline-offset: 2px;
-}
-
-button,
-input:not([type='checkbox']):not([type='radio']),
-select,
-textarea,
-summary {
-	min-height: 44px;
-}
-
-input[type='file'] {
-	max-width: 100%;
-	color: var(--ink);
-	font: inherit;
-}
-
-input:not([type='checkbox']):not([type='radio']),
-select,
-textarea {
-	color: var(--ink);
-}
-
-input.glass-control,
-select.glass-control,
-textarea.glass-control {
-	background-color: var(--glass-inset-fill);
-}
-
-input::placeholder,
-textarea::placeholder {
-	color: var(--muted);
-	opacity: 1;
-}
-
-input[type='file']::file-selector-button {
-	min-height: 40px;
-	margin-inline-end: 0.65rem;
-	padding: 0.4rem 0.75rem;
-	border: 1px solid var(--glass-border);
-	border-radius: 0.5rem;
-	background: var(--glass-inset-fill);
-	color: var(--ink);
-	font: inherit;
-	font-weight: 600;
-	cursor: pointer;
-}
-
-/* Levels: chrome (navigation), panel, inset. Never nest glass three deep. */
-.glass-panel,
-.glass-chrome,
-.glass-inset,
-.glass-control {
-	min-width: 0;
-	border: 1px solid var(--glass-rim);
-	background-color: var(--glass-fill);
-	box-shadow:
-		inset 0 1px 0 var(--glass-edge),
-		inset 0 0 0 1px var(--glass-rim),
-		var(--glass-shadow);
-}
-
-.glass-panel,
-.glass-chrome {
-	border-radius: 1.25rem;
-	color: var(--ink);
-	-webkit-backdrop-filter: var(--glass-blur);
-	backdrop-filter: var(--glass-blur);
-}
-
-.glass-panel > * {
-	min-width: 0;
-}
-
-.glass-inset {
-	border-radius: 1rem;
-	background-color: var(--glass-inset-fill);
-	box-shadow: inset 0 1px 0 var(--glass-edge);
-	-webkit-backdrop-filter: var(--glass-blur);
-	backdrop-filter: var(--glass-blur);
-}
-
-.glass-control {
-	border-radius: 0.625rem;
-	background-color: var(--glass-inset-fill);
-	box-shadow: inset 0 1px 0 var(--glass-edge);
-	color: inherit;
-	transition:
-		color 180ms ease-out,
-		background-color 180ms ease-out,
-		border-color 180ms ease-out,
-		opacity 180ms ease-out;
-}
-
-.glass-control:is(input, select) {
-	border-color: var(--glass-border);
-}
-
-.glass-control:hover:not(:disabled) {
-	background-color: var(--hover);
-	border-color: var(--glass-border);
-}
-
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active), print {
 	:root {
 		--glass-fill: var(--glass-solid);
 		--glass-inset-fill: var(--glass-tint);
 		--glass-blur: none;
-	}
-	body {
-		background-image: none;
-		background-attachment: scroll;
-	}
-	.glass-panel,
-	.glass-chrome,
-	.glass-inset,
-	.glass-control {
-		box-shadow: none;
-		border-color: var(--glass-border);
 	}
 }
 
@@ -238,13 +137,261 @@ input[type='file']::file-selector-button {
 	}
 }
 
+@media (forced-colors: active) {
+	:root {
+		--ink: CanvasText;
+		--muted: CanvasText;
+		--accent-text: LinkText;
+		--focus: Highlight;
+		--glass-border: CanvasText;
+	}
+}
+
+@theme inline {
+	--font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--surface-muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--surface-hover);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+
+	/* Glass radii: 10 controls, 16 insets, 20 panels and menus, 24 dialogs and sheets. */
+	--radius-sm: 0.375rem;
+	--radius-md: 0.625rem;
+	--radius-lg: 1rem;
+	--radius-xl: 1.25rem;
+	--radius-2xl: 1.5rem;
+}
+
+@layer base {
+	* {
+		@apply border-border;
+		box-sizing: border-box;
+	}
+
+	html {
+		@apply font-sans;
+	}
+
+	body {
+		margin: 0;
+		min-height: 100vh;
+		color: var(--ink);
+		line-height: 1.5;
+		background-color: var(--glass-solid);
+		background-image:
+			radial-gradient(60rem 40rem at 12% 8%, var(--blob-1), transparent 70%),
+			radial-gradient(52rem 38rem at 92% 28%, var(--blob-2), transparent 70%),
+			radial-gradient(56rem 40rem at 30% 92%, var(--blob-3), transparent 70%);
+		background-attachment: fixed;
+	}
+
+	/* Tailwind's reset strips the browser defaults the not yet migrated routes still rely on. */
+	h1 {
+		font-size: 1.4rem;
+		font-weight: 700;
+		margin: 0 0 1rem;
+	}
+	h2 {
+		font-size: 1.5em;
+		font-weight: 700;
+		margin: 0.83em 0;
+	}
+	h3 {
+		font-size: 1.17em;
+		font-weight: 700;
+		margin: 1em 0;
+	}
+	h4,
+	h5,
+	h6 {
+		font-weight: 700;
+		margin: 1.33em 0;
+	}
+	p,
+	dl,
+	pre {
+		margin-block: 1em;
+	}
+	ul:not([data-slot]),
+	ol:not([data-slot]) {
+		margin-block: 1em;
+		padding-inline-start: 2.5rem;
+	}
+	ul:not([data-slot]) {
+		list-style: disc;
+	}
+	ol:not([data-slot]) {
+		list-style: decimal;
+	}
+	a:not([data-slot]) {
+		color: var(--accent-text);
+		text-decoration: underline;
+	}
+
+	:focus-visible {
+		outline: 3px solid var(--focus);
+		outline-offset: 2px;
+	}
+
+	/* Touch target size for native controls that are not shadcn components yet. */
+	button:not([data-slot]),
+	input:not([data-slot]):not([type='checkbox']):not([type='radio']),
+	select:not([data-slot]),
+	textarea:not([data-slot]),
+	summary {
+		min-height: 44px;
+	}
+
+	input:not([data-slot]):not([type='checkbox']):not([type='radio']),
+	select:not([data-slot]),
+	textarea:not([data-slot]),
+	input[type='file'] {
+		color: var(--ink);
+	}
+
+	input[type='file'] {
+		min-width: 0;
+		max-width: 100%;
+		font: inherit;
+	}
+
+	input[type='file']::file-selector-button {
+		min-height: 40px;
+		margin-inline-end: 0.65rem;
+		padding: 0.4rem 0.75rem;
+		border: 1px solid var(--glass-border);
+		border-radius: 0.5rem;
+		background: var(--glass-inset-fill);
+		color: var(--ink);
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--muted);
+		opacity: 1;
+	}
+}
+
+/*
+ * Levels: chrome (navigation), panel, inset, control. Never nest glass three deep.
+ * Layered as components so Tailwind utilities (rounded-*, p-*) can still adjust them.
+ */
+@layer components {
+	.glass-panel,
+	.glass-chrome,
+	.glass-inset,
+	.glass-control {
+		min-width: 0;
+		border: 1px solid var(--glass-rim);
+		background-color: var(--glass-fill);
+		box-shadow:
+			inset 0 1px 0 var(--glass-edge),
+			inset 0 0 0 1px var(--glass-rim),
+			var(--glass-shadow);
+	}
+
+	.glass-panel,
+	.glass-chrome {
+		border-radius: 1.25rem;
+		color: var(--ink);
+		-webkit-backdrop-filter: var(--glass-blur);
+		backdrop-filter: var(--glass-blur);
+	}
+
+	.glass-panel > * {
+		min-width: 0;
+	}
+
+	/* Dialogs and sheets. */
+	.glass-dialog {
+		border-radius: 1.5rem;
+	}
+
+	.glass-inset {
+		border-radius: 1rem;
+		background-color: var(--glass-inset-fill);
+		box-shadow: inset 0 1px 0 var(--glass-edge);
+		-webkit-backdrop-filter: var(--glass-blur);
+		backdrop-filter: var(--glass-blur);
+	}
+
+	.glass-control {
+		border-radius: 0.625rem;
+		background-color: var(--glass-inset-fill);
+		box-shadow: inset 0 1px 0 var(--glass-edge);
+		color: inherit;
+		transition:
+			color 180ms ease-out,
+			background-color 180ms ease-out,
+			border-color 180ms ease-out,
+			opacity 180ms ease-out,
+			transform 180ms ease-out;
+	}
+
+	.glass-control:is(input, select, textarea, [data-slot='select-trigger']) {
+		border-color: var(--glass-border);
+		color: var(--ink);
+	}
+
+	.glass-control:hover:not(:disabled) {
+		background-color: var(--hover);
+		border-color: var(--glass-border);
+	}
+
+	/* Chrome sits on the fixed colour field; menu rows read as a surface step, not a glow. */
+	.glass-row:hover {
+		background-color: var(--hover);
+	}
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active), print {
+	body {
+		background-image: none;
+		background-attachment: scroll;
+	}
+	.glass-panel,
+	.glass-chrome,
+	.glass-inset,
+	.glass-control {
+		box-shadow: none;
+		border-color: var(--glass-border);
+	}
+}
+
 @media (prefers-color-scheme: dark) {
 	.glass-chrome a:not([aria-current='page']) {
 		color: #e6f3f9;
 	}
 	input.glass-control,
 	select.glass-control,
-	textarea.glass-control {
+	textarea.glass-control,
+	[data-slot='select-trigger'].glass-control {
 		color: #e6f3f9;
 		background-color: #14252e;
 	}
@@ -258,14 +405,6 @@ input[type='file']::file-selector-button {
 }
 
 @media (forced-colors: active) {
-	:root {
-		color-scheme: light dark;
-		--ink: CanvasText;
-		--muted: CanvasText;
-		--accent-text: LinkText;
-		--focus: Highlight;
-		--glass-border: CanvasText;
-	}
 	body {
 		color: CanvasText;
 		background: Canvas;
@@ -325,5 +464,6 @@ input[type='file']::file-selector-button {
 	*::before,
 	*::after {
 		transition-duration: 0s !important;
+		animation-duration: 0s !important;
 	}
 }

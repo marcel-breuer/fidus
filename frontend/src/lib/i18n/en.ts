@@ -237,6 +237,7 @@ export const en = {
 	'reminders.error': 'Reminders could not be synchronized.',
 	'nav.tokens': 'Access tokens',
 	'nav.usage': 'Usage',
+	'nav.open': 'Open navigation',
 	'usage.title': 'Usage',
 	'usage.intro': 'Counters for your own activity on this instance. They are informational only; nothing is limited.',
 	'usage.period': 'Period',
