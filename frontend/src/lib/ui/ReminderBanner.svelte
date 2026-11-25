@@ -4,7 +4,7 @@
 	import type { Reminder } from '#lib/api/tasks.ts';
 	import { getT } from '#lib/i18n/context.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
-	import { Card } from '#lib/components/ui/card/index.ts';
+	import { Alert } from '#lib/components/ui/alert/index.ts';
 
 	let { enabled }: { enabled: boolean } = $props();
 	const t = getT();
@@ -56,7 +56,7 @@
 </script>
 
 {#if enabled && (active.length > 0 || error)}
-	<Card class="mb-3 gap-2 px-4 py-3" role="status" aria-live="polite" aria-label={t('reminders.title')}>
+	<Alert class="mb-3 gap-2" role="status" aria-live="polite" aria-label={t('reminders.title')}>
 		{#if error}<p>{t('reminders.error')}</p>{/if}
 		{#if active.length > 0}
 			<h2 class="m-0 text-base font-bold">{t('reminders.title')}</h2>
@@ -66,5 +66,5 @@
 				{/each}
 			</ul>
 		{/if}
-	</Card>
+	</Alert>
 {/if}

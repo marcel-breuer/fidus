@@ -2,7 +2,14 @@
 	import { page } from '$app/state';
 	import { createTask, completeTask, deleteTask, formatTaskDate, getTasks, serializeDateTime, updateTask, type Task, type TaskStatus } from '#lib/api/tasks.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button, TextField } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
+	import { Tabs, TabsList, TabsTrigger } from '#lib/components/ui/tabs/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 
 	const t = getT();
 	let items = $state<Task[]>([]);
@@ -83,56 +90,44 @@
 </script>
 
 <svelte:head><title>{t('tasks.title')} · {t('app.name')}</title></svelte:head>
-<section class="glass-panel tasks">
-	<h1>{t('tasks.title')}</h1>
-	<form class="create" onsubmit={addTask}>
-		<TextField label={t('tasks.taskTitle')} bind:value={title} maxlength={500} required />
-		<TextField label={t('tasks.dueAt')} type="datetime-local" bind:value={dueAt} />
-		<TextField label={t('tasks.remindAt')} type="datetime-local" bind:value={remindAt} />
-		<label class="field"><span>{t('tasks.notes')}</span><textarea class="glass-control" bind:value={notes} rows="3"></textarea></label>
-		<Button disabled={saving || !title.trim()}>{saving ? t('common.loading') : t('tasks.add')}</Button>
+<Card class="gap-4 p-[clamp(1rem,3vw,1.5rem)]">
+	<h1 class="m-0">{t('tasks.title')}</h1>
+	<form class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3" onsubmit={addTask}>
+		<div class="grid gap-1.5"><Label for="task-title" class="font-semibold">{t('tasks.taskTitle')}</Label><Input id="task-title" bind:value={title} maxlength={500} required /></div>
+		<div class="grid gap-1.5"><Label for="task-due" class="font-semibold">{t('tasks.dueAt')}</Label><Input id="task-due" type="datetime-local" bind:value={dueAt} /></div>
+		<div class="grid gap-1.5"><Label for="task-remind" class="font-semibold">{t('tasks.remindAt')}</Label><Input id="task-remind" type="datetime-local" bind:value={remindAt} /></div>
+		<div class="grid gap-1.5"><Label for="task-notes" class="font-semibold">{t('tasks.notes')}</Label><Textarea id="task-notes" bind:value={notes} rows={3} class="resize-y" /></div>
+		<Button type="submit" class="self-start" disabled={saving || !title.trim()}>{saving ? t('common.loading') : t('tasks.add')}</Button>
 	</form>
-	<div class="filters" role="group" aria-label={t('tasks.filter')}>
-		<Button variant={filter === 'open' ? 'primary' : 'quiet'} onclick={() => filter = 'open'}>{t('tasks.open')}</Button>
-		<Button variant={filter === 'done' ? 'primary' : 'quiet'} onclick={() => filter = 'done'}>{t('tasks.done')}</Button>
-		<Button variant={filter === 'all' ? 'primary' : 'quiet'} onclick={() => filter = 'all'}>{t('tasks.all')}</Button>
-	</div>
-	{#if error}<Alert>{error}</Alert>{/if}
-	{#if loading}<p role="status">{t('common.loading')}</p>
-	{:else if items.length === 0}<p class="empty">{t('tasks.empty')}</p>
+	<Tabs bind:value={filter}>
+		<TabsList class="group-data-horizontal/tabs:h-11 max-w-full" aria-label={t('tasks.filter')}>
+			<TabsTrigger value="open">{t('tasks.open')}</TabsTrigger>
+			<TabsTrigger value="done">{t('tasks.done')}</TabsTrigger>
+			<TabsTrigger value="all">{t('tasks.all')}</TabsTrigger>
+		</TabsList>
+	</Tabs>
+	{#if error}<Alert variant="destructive"><AlertDescription class="text-foreground">{error}</AlertDescription></Alert>{/if}
+	{#if loading}<p role="status" class="m-0">{t('common.loading')}</p>
+	{:else if items.length === 0}<p class="m-0 text-muted-foreground">{t('tasks.empty')}</p>
 	{:else}
-		<ul>
+		<ul class="m-0 grid list-none gap-3 p-0">
 			{#each items as task (task.id)}
-				<li>
-					<label class="complete"><input type="checkbox" checked={Boolean(task.done_at)} onchange={() => toggleTask(task)} /><span class:finished={Boolean(task.done_at)}>{task.title}</span></label>
+				<li class="glass-inset grid gap-2.5 rounded-xl p-4">
+					<div class="flex min-h-11 items-center gap-2.5 font-semibold">
+						<Checkbox id={`task-${task.id}`} checked={Boolean(task.done_at)} onCheckedChange={() => toggleTask(task)} />
+						<Label for={`task-${task.id}`} class={`font-semibold [overflow-wrap:anywhere] ${task.done_at ? 'text-muted-foreground line-through' : ''}`}>{task.title}</Label>
+					</div>
 					{#if editing === task.id}
-						<TextField label={t('tasks.taskTitle')} bind:value={editTitle} />
-						<label class="field"><span>{t('tasks.notes')}</span><textarea class="glass-control" bind:value={editNotes} rows="2"></textarea></label>
-						<div class="actions"><Button onclick={() => saveEdit(task)}>{t('tasks.save')}</Button><Button variant="quiet" onclick={() => editing = null}>{t('tasks.cancel')}</Button></div>
+						<div class="grid gap-1.5"><Label for={`edit-title-${task.id}`} class="font-semibold">{t('tasks.taskTitle')}</Label><Input id={`edit-title-${task.id}`} bind:value={editTitle} /></div>
+						<div class="grid gap-1.5"><Label for={`edit-notes-${task.id}`} class="font-semibold">{t('tasks.notes')}</Label><Textarea id={`edit-notes-${task.id}`} bind:value={editNotes} rows={2} class="resize-y" /></div>
+						<div class="flex flex-wrap gap-2"><Button type="button" onclick={() => saveEdit(task)}>{t('tasks.save')}</Button><Button type="button" variant="outline" onclick={() => editing = null}>{t('tasks.cancel')}</Button></div>
 					{:else}
-						{#if task.notes}<p>{task.notes}</p>{/if}
-						{#if task.due_at}<p class="date">{t('tasks.dueLabel', { date: formatTaskDate(task.due_at, page.data.locale) })}</p>{/if}
-						<div class="actions"><Button variant="quiet" onclick={() => beginEdit(task)}>{t('tasks.edit')}</Button><Button variant="quiet" onclick={() => remove(task)}>{t('tasks.delete')}</Button></div>
+						{#if task.notes}<p class="m-0 [overflow-wrap:anywhere]">{task.notes}</p>{/if}
+						{#if task.due_at}<p class="m-0 text-muted-foreground [overflow-wrap:anywhere]">{t('tasks.dueLabel', { date: formatTaskDate(task.due_at, page.data.locale) })}</p>{/if}
+						<div class="flex flex-wrap gap-2"><Button type="button" variant="outline" onclick={() => beginEdit(task)}>{t('tasks.edit')}</Button><Button type="button" variant="outline" onclick={() => remove(task)}>{t('tasks.delete')}</Button></div>
 					{/if}
 				</li>
 			{/each}
 		</ul>
 	{/if}
-</section>
-
-<style>
-	.tasks { padding: clamp(1rem, 3vw, 1.5rem); display: grid; gap: 1rem; }
-	h1 { margin: 0; }
-	.create { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
-	.create :global(button) { align-self: start; }
-	.field { display: grid; gap: .35rem; font-weight: 600; }
-	textarea { font: inherit; color: var(--ink); padding: .6rem .7rem; resize: vertical; }
-	.filters, .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
-	ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
-	li { padding: 1rem; border: 1px solid var(--glass-rim); border-radius: .8rem; display: grid; gap: .65rem; }
-	.complete { display: flex; gap: .65rem; align-items: center; min-height: 44px; font-weight: 650; }
-	.complete input { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
-	.finished, .date, .empty { color: var(--muted); }
-	.finished { text-decoration: line-through; }
-	li p { margin: 0; overflow-wrap: anywhere; }
-</style>
+</Card>
