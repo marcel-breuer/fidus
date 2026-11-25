@@ -20,7 +20,12 @@
 	} from '#lib/api/tokens.ts';
 	import { formatDate } from '#lib/i18n/index.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button, TextField } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card, CardContent, CardHeader, CardTitle } from '#lib/components/ui/card/index.ts';
+	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
 
 	const t = getT();
 	let tokens = $state<ApiToken[]>([]);
@@ -33,6 +38,9 @@
 	let busyId = $state('');
 	let errorKey = $state<'common.error' | 'tokens.limit' | 'tokens.scopeRequired' | null>(null);
 	let copied = $state(false);
+	function toggleScope(scope: TokenScope, checked: boolean) {
+		selected = checked ? [...selected, scope] : selected.filter((item) => item !== scope);
+	}
 	const fmt = (value: string) => formatDate(page.data.locale, new Date(value));
 
 	onMount(async () => {
@@ -109,126 +117,111 @@
 </script>
 
 <svelte:head><title>{t('tokens.title')} · {t('app.name')}</title></svelte:head>
-<div class="tokens-page">
-	<h1>{t('tokens.title')}</h1>
-	<p class="intro">{t('tokens.intro')}</p>
+<div class="mx-auto grid w-[min(56rem,100%)] gap-4 [&_:is(h1,h2,h3,p,dl,ul)]:m-0">
+	<h1 class="text-2xl font-semibold">{t('tokens.title')}</h1>
+	<p class="text-muted-foreground">{t('tokens.intro')}</p>
 	{#if errorKey}
-		<Alert>{t(errorKey)}</Alert>
+		<Alert variant="destructive">
+			<AlertDescription class="text-foreground">{t(errorKey)}</AlertDescription>
+		</Alert>
 	{/if}
 
-	<section class="glass-panel section" aria-labelledby="create-title">
-		<h2 id="create-title">{t('tokens.create.title')}</h2>
-		<form class="create-form" onsubmit={addToken}>
-			<TextField label={t('tokens.name')} required maxlength={100} bind:value={name} />
-			<TextField
-				label={t('tokens.expiry')}
-				type="number"
-				min="1"
-				max={String(MAX_EXPIRY_DAYS)}
-				required
-				bind:value={expiresInDays}
-			/>
-			<fieldset>
-				<legend>{t('tokens.scopes')}</legend>
-				{#each TOKEN_SCOPES as scope (scope)}
-					<label class="scope">
-						<input type="checkbox" value={scope} bind:group={selected} />
-						<span>{t(`tokens.scope.${scope}`)}</span>
-					</label>
-				{/each}
-			</fieldset>
-			<div class="submit">
-				<Button type="submit" disabled={busyId === 'create'}>{t('tokens.create')}</Button>
-			</div>
-		</form>
-		{#if created}
-			<div class="secret" role="status">
-				<p>{t('tokens.created')}</p>
-				<div class="secret-row">
-					<code>{created.token}</code>
-					<Button variant="quiet" onclick={copySecret}>{copied ? t('tokens.copied') : t('tokens.copy')}</Button>
-					<Button variant="quiet" onclick={() => (created = null)}>{t('tokens.done')}</Button>
+	<Card class="min-w-0" role="region" aria-labelledby="create-title">
+		<CardHeader>
+			<CardTitle><h2 id="create-title" class="text-lg font-semibold">{t('tokens.create.title')}</h2></CardTitle>
+		</CardHeader>
+		<CardContent class="gap-4">
+			<form class="grid grid-cols-1 items-end gap-3 min-[521px]:grid-cols-[minmax(0,1fr)_minmax(8rem,12rem)]" onsubmit={addToken}>
+				<div class="grid gap-1.5">
+					<Label for="token-name" class="font-semibold">{t('tokens.name')}</Label>
+					<Input id="token-name" required maxlength={100} bind:value={name} />
 				</div>
-				<p class="endpoint">{t('tokens.endpoint')}: <code>{mcpEndpoint(page.url.origin)}</code></p>
-			</div>
-		{/if}
-	</section>
+				<div class="grid gap-1.5">
+					<Label for="token-expiry" class="font-semibold">{t('tokens.expiry')}</Label>
+					<Input id="token-expiry" type="number" min="1" max={String(MAX_EXPIRY_DAYS)} required bind:value={expiresInDays} />
+				</div>
+				<fieldset class="col-span-full m-0 grid gap-1 border-0 p-0">
+					<legend class="mb-1.5 p-0 text-sm font-semibold">{t('tokens.scopes')}</legend>
+					{#each TOKEN_SCOPES as scope (scope)}
+						<div class="flex min-h-11 items-center gap-2.5">
+							<Checkbox id="token-scope-{scope}" checked={selected.includes(scope)} onCheckedChange={(checked) => toggleScope(scope, checked)} />
+							<Label for="token-scope-{scope}" class="min-h-11 flex-1 font-normal">{t(`tokens.scope.${scope}`)}</Label>
+						</div>
+					{/each}
+				</fieldset>
+				<div class="col-span-full">
+					<Button type="submit" disabled={busyId === 'create'}>{t('tokens.create')}</Button>
+				</div>
+			</form>
+			{#if created}
+				<div class="glass-inset grid gap-2.5 rounded-lg p-3.5" role="status">
+					<p>{t('tokens.created')}</p>
+					<div class="flex min-w-0 flex-wrap items-center gap-2.5">
+						<code class="text-sm [overflow-wrap:anywhere]">{created.token}</code>
+						<Button type="button" variant="outline" onclick={copySecret}>{copied ? t('tokens.copied') : t('tokens.copy')}</Button>
+						<Button type="button" variant="outline" onclick={() => (created = null)}>{t('tokens.done')}</Button>
+					</div>
+					<p>{t('tokens.endpoint')}: <code class="text-sm [overflow-wrap:anywhere]">{mcpEndpoint(page.url.origin)}</code></p>
+				</div>
+			{/if}
+		</CardContent>
+	</Card>
 
-	<section class="glass-panel section" aria-labelledby="active-title">
-		<h2 id="active-title">{t('tokens.active')}</h2>
-		{#if loading}
-			<p>{t('common.loading')}</p>
-		{:else if tokens.length === 0}
-			<p>{t('tokens.empty')}</p>
-		{:else}
-			<ul class="token-list">
-				{#each tokens as token (token.id)}
-					<li>
-						<div class="meta">
-							<strong>{token.name}</strong>
-							<span class="prefix">{token.token_prefix}…</span>
-							<span class="scopes">{token.scopes.map((scope) => t(`tokens.scope.${scope}`)).join(', ')}</span>
-							<span class="dates">
-								{isExpired(token)
+	<Card class="min-w-0" role="region" aria-labelledby="active-title">
+		<CardHeader>
+			<CardTitle><h2 id="active-title" class="text-lg font-semibold">{t('tokens.active')}</h2></CardTitle>
+		</CardHeader>
+		<CardContent class="gap-4">
+			{#if loading}
+				<p>{t('common.loading')}</p>
+			{:else if tokens.length === 0}
+				<p>{t('tokens.empty')}</p>
+			{:else}
+				<ul class="m-0 grid list-none gap-3 p-0">
+					{#each tokens as token (token.id)}
+						<li class="flex flex-col items-start justify-between gap-4 min-[521px]:flex-row">
+							<div class="grid min-w-0 gap-0.5">
+								<strong>{token.name}</strong>
+								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{token.token_prefix}…</span>
+								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{token.scopes.map((scope) => t(`tokens.scope.${scope}`)).join(', ')}</span>
+								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{isExpired(token)
 									? t('tokens.expired', { date: fmt(token.expires_at) })
 									: t('tokens.expires', { date: fmt(token.expires_at) })}
 								·
-								{token.last_used_at ? t('tokens.lastUsed', { date: fmt(token.last_used_at) }) : t('tokens.neverUsed')}
-							</span>
-						</div>
-						<Button variant="quiet" disabled={busyId === token.id} onclick={() => removeToken(token)}>{t('tokens.revoke')}</Button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+								{token.last_used_at ? t('tokens.lastUsed', { date: fmt(token.last_used_at) }) : t('tokens.neverUsed')}</span>
+							</div>
+							<Button type="button" variant="outline" disabled={busyId === token.id} onclick={() => removeToken(token)}>{t('tokens.revoke')}</Button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</CardContent>
+	</Card>
 
-	<section class="glass-panel section" aria-labelledby="oauth-grants-title">
-		<h2 id="oauth-grants-title">{t('oauth.grants.title')}</h2>
-		{#if loading}
-			<p>{t('common.loading')}</p>
-		{:else if grants.length === 0}
-			<p>{t('oauth.grants.empty')}</p>
-		{:else}
-			<ul class="token-list">
-				{#each grants as grant (grant.id)}
-					<li>
-						<div class="meta">
-							<strong>{grant.client_name}</strong>
-							<span class="prefix">{grant.resource}</span>
-							<span class="scopes">{grant.scopes.map((scope) => t(`tokens.scope.${scope}`)).join(', ')}</span>
-							<span class="dates">{t('oauth.grants.expires', { date: fmt(grant.expires_at) })}</span>
-						</div>
-						<Button variant="quiet" disabled={busyId === grant.id} onclick={() => removeGrant(grant)}>{t('tokens.revoke')}</Button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+	<Card class="min-w-0" role="region" aria-labelledby="oauth-grants-title">
+		<CardHeader>
+			<CardTitle><h2 id="oauth-grants-title" class="text-lg font-semibold">{t('oauth.grants.title')}</h2></CardTitle>
+		</CardHeader>
+		<CardContent class="gap-4">
+			{#if loading}
+				<p>{t('common.loading')}</p>
+			{:else if grants.length === 0}
+				<p>{t('oauth.grants.empty')}</p>
+			{:else}
+				<ul class="m-0 grid list-none gap-3 p-0">
+					{#each grants as grant (grant.id)}
+						<li class="flex flex-col items-start justify-between gap-4 min-[521px]:flex-row">
+							<div class="grid min-w-0 gap-0.5">
+								<strong>{grant.client_name}</strong>
+								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{grant.resource}</span>
+								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{grant.scopes.map((scope) => t(`tokens.scope.${scope}`)).join(', ')}</span>
+								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{t('oauth.grants.expires', { date: fmt(grant.expires_at) })}</span>
+							</div>
+							<Button type="button" variant="outline" disabled={busyId === grant.id} onclick={() => removeGrant(grant)}>{t('tokens.revoke')}</Button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</CardContent>
+	</Card>
 </div>
-
-<style>
-	.tokens-page { display: grid; gap: 1rem; width: min(56rem, 100%); margin: 0 auto; }
-	.tokens-page h1, h2 { margin: 0; }
-	h2 { font-size: 1.1rem; }
-	.intro { margin: 0; color: var(--muted); }
-	.section { display: grid; gap: 1rem; padding: 1.25rem; min-width: 0; }
-	.create-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(8rem, 12rem); gap: 0.75rem; align-items: end; }
-	fieldset { grid-column: 1 / -1; display: grid; gap: 0.4rem; margin: 0; padding: 0; border: 0; }
-	legend { font-size: 0.875rem; font-weight: 600; padding: 0; margin-bottom: 0.35rem; }
-	.scope { display: flex; align-items: center; gap: 0.55rem; min-height: 44px; }
-	.scope input { width: 1.1rem; height: 1.1rem; accent-color: var(--accent-text); }
-	.submit { grid-column: 1 / -1; }
-	.secret { display: grid; gap: 0.6rem; padding: 0.9rem; border: 1px solid var(--line); border-radius: 0.625rem; background: var(--glass-inset-fill); }
-	.secret p { margin: 0; }
-	.secret-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; min-width: 0; }
-	code { overflow-wrap: anywhere; font-size: 0.85rem; }
-	.token-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
-	.token-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-	.meta { display: grid; gap: 0.15rem; min-width: 0; }
-	.prefix, .scopes, .dates { font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
-	@media (max-width: 520px) {
-		.create-form { grid-template-columns: 1fr; }
-		.token-list li { flex-direction: column; }
-	}
-</style>
