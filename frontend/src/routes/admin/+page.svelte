@@ -28,6 +28,8 @@
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Badge } from '#lib/components/ui/badge/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import { RadioGroup, RadioGroupItem } from '#lib/components/ui/radio-group/index.ts';
+	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Card, CardContent, CardHeader, CardTitle } from '#lib/components/ui/card/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { Label } from '#lib/components/ui/label/index.ts';
@@ -145,8 +147,8 @@
 	}
 
 	function toggleActive(user: AdminUser) {
-		if (user.is_active && !confirm(t('admin.users.confirmDeactivate', { email: user.email }))) return;
-		void changeUser(user, { is_active: !user.is_active });
+		if (user.is_active) { pendingDeactivate = user; return; }
+		void changeUser(user, { is_active: true });
 	}
 
 	async function chooseMode(mode: RegistrationMode) {
@@ -212,6 +214,7 @@
 			errorMessage = true;
 		}
 	}
+	let pendingDeactivate = $state<AdminUser | null>(null);
 </script>
 
 <svelte:head><title>{t('admin.title')} · {t('app.name')}</title></svelte:head>
@@ -233,23 +236,21 @@
 			{#if loading}
 				<p>{t('common.loading')}</p>
 			{:else if registration}
-				<div class="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-3" role="radiogroup" aria-labelledby="registration-title">
+				<RadioGroup
+					value={registration.mode}
+					onValueChange={(mode) => chooseMode(mode as RegistrationMode)}
+					disabled={busyKey === 'registration'}
+					aria-labelledby="registration-title"
+					class="grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-3"
+				>
 					{#each REGISTRATION_MODES as mode (mode)}
-						<label class="glass-control grid cursor-pointer grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-0.5 p-3 {registration.mode === mode ? 'border-primary' : ''}">
-							<input
-								class="row-span-2 accent-primary"
-								type="radio"
-								name="registration-mode"
-								value={mode}
-								checked={registration.mode === mode}
-								disabled={busyKey === 'registration'}
-								onchange={() => chooseMode(mode)}
-							/>
+						<Label for="registration-mode-{mode}" class="glass-control grid cursor-pointer grid-cols-[auto_1fr] items-center gap-x-2.5 gap-y-0.5 p-3 font-normal {registration.mode === mode ? 'border-primary' : ''}">
+							<RadioGroupItem id="registration-mode-{mode}" value={mode} class="row-span-2 border-muted-foreground" />
 							<span class="font-semibold">{t(`admin.registration.mode.${mode}`)}</span>
 							<span class="col-start-2 text-sm text-muted-foreground">{t(`admin.registration.mode.${mode}.hint`)}</span>
-						</label>
+						</Label>
 					{/each}
-				</div>
+				</RadioGroup>
 				<p class="text-sm text-muted-foreground">{t('admin.registration.default', { mode: t(`admin.registration.mode.${registration.default}`) })}</p>
 				<p class="text-sm text-muted-foreground" role="status">{registrationSaved ? t('admin.registration.saved') : ''}</p>
 			{/if}
@@ -418,3 +419,13 @@
 		</CardContent>
 	</Card>
 </div>
+
+<ConfirmDialog
+	open={pendingDeactivate !== null}
+	title={t('admin.users.deactivate')}
+	description={t('admin.users.confirmDeactivate', { email: pendingDeactivate?.email ?? '' })}
+	confirmLabel={t('admin.users.deactivate')}
+	cancelLabel={t('common.cancel')}
+	onconfirm={() => { const item = pendingDeactivate; pendingDeactivate = null; if (item) void changeUser(item, { is_active: false }); }}
+	oncancel={() => pendingDeactivate = null}
+/>

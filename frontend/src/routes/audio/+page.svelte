@@ -10,6 +10,7 @@
 	import { getT } from '#lib/i18n/context.ts';
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Card } from '#lib/components/ui/card/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { Label } from '#lib/components/ui/label/index.ts';
@@ -163,7 +164,6 @@
 	}
 
 	async function remove(memo: Memo) {
-		if (!window.confirm(t('audio.deleteConfirm', { title: memo.title }))) return;
 		try {
 			await deleteMemo(memo.id);
 			const url = speech[memo.id]?.url;
@@ -184,11 +184,12 @@
 			error = cause instanceof Error && cause.message === 'TEXT_TOO_LONG' ? t('audio.speechTooLong') : t('audio.speechFailed');
 		}
 	}
+	let pendingDelete = $state<Memo | null>(null);
 </script>
 
 <svelte:head><title>{t('audio.title')} · {t('app.name')}</title></svelte:head>
 <Card class="grid gap-4 p-[clamp(1rem,3vw,1.5rem)]">
-	<h1 class="m-0">{t('audio.title')}</h1>
+	<h1 class="m-0 text-[1.4rem] font-bold">{t('audio.title')}</h1>
 	<p class="m-0 text-muted-foreground">{t('audio.intro')}</p>
 	<div class="flex flex-wrap items-end justify-between gap-4">
 		<div class="grid flex-[1_1_16rem] gap-1.5">
@@ -236,11 +237,11 @@
 							</Button>
 						{/if}
 						{#if needsRetry(memo)}<Button type="button" variant="outline" onclick={() => retry(memo)}>{t('audio.retry')}</Button>{/if}
-						<Button type="button" variant="outline" onclick={() => remove(memo)}>{t('audio.delete')}</Button>
+						<Button type="button" variant="outline" onclick={() => pendingDelete = memo}>{t('audio.delete')}</Button>
 					</div>
 					{#if memo.status === 'ready'}
 						<details ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadDetail(memo.id); }}>
-							<summary class="cursor-pointer font-semibold">{t('audio.transcript')}</summary>
+							<summary class="min-h-11 cursor-pointer font-semibold leading-[2.75rem]">{t('audio.transcript')}</summary>
 							{#if details[memo.id]}
 								<p class="mx-0 mt-3 mb-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{details[memo.id].transcript ?? t('audio.noTranscript')}</p>
 							{:else}<p role="status">{t('audio.loading')}</p>{/if}
@@ -251,3 +252,13 @@
 		</ul>
 	{/if}
 </Card>
+
+<ConfirmDialog
+	open={pendingDelete !== null}
+	title={t('audio.delete')}
+	description={t('audio.deleteConfirm', { title: pendingDelete?.title ?? '' })}
+	confirmLabel={t('audio.delete')}
+	cancelLabel={t('common.cancel')}
+	onconfirm={() => { const item = pendingDelete; pendingDelete = null; if (item) void remove(item); }}
+	oncancel={() => pendingDelete = null}
+/>

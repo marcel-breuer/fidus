@@ -13,6 +13,7 @@
 	import { getT } from '#lib/i18n/context.ts';
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Card } from '#lib/components/ui/card/index.ts';
 	import { Label } from '#lib/components/ui/label/index.ts';
 	import { RadioGroup, RadioGroupItem } from '#lib/components/ui/radio-group/index.ts';
@@ -71,7 +72,6 @@
 	};
 
 	const remove = (item: Memory) => {
-		if (!window.confirm(t('memory.confirmDelete'))) return;
 		void run(async () => {
 			await deleteMemory(item.id);
 			items = items.filter((row) => row.id !== item.id);
@@ -83,12 +83,13 @@
 			writeMode = await setWriteMode(mode);
 		});
 	};
+	let pendingDelete = $state<Memory | null>(null);
 </script>
 
 <svelte:head><title>{t('memory.title')} · {t('app.name')}</title></svelte:head>
 <Card class="mx-auto grid w-full max-w-208 gap-4 p-[clamp(1rem,3vw,1.5rem)]">
 	<a class="text-sm" href="/chat">{t('memory.back')}</a>
-	<h1 class="m-0">{t('memory.title')}</h1>
+	<h1 class="m-0 text-[1.4rem] font-bold">{t('memory.title')}</h1>
 	{#if error}<Alert variant="destructive"><AlertDescription class="text-foreground">{error}</AlertDescription></Alert>{/if}
 
 	<div class="glass-inset grid gap-2 px-4 py-3.5">
@@ -131,7 +132,7 @@
 						<p class="m-0 text-sm text-muted-foreground">{item.source === 'agent' ? t('memory.sourceAgent') : t('memory.sourceUser')}</p>
 						<div class="flex flex-wrap gap-2">
 							<Button type="button" variant="outline" disabled={busy} onclick={() => { editingId = item.id; editValue = item.content; }}>{t('memory.edit')}</Button>
-							<Button type="button" variant="outline" disabled={busy} onclick={() => remove(item)}>{t('memory.delete')}</Button>
+							<Button type="button" variant="outline" disabled={busy} onclick={() => pendingDelete = item}>{t('memory.delete')}</Button>
 						</div>
 					{/if}
 				</li>
@@ -139,3 +140,13 @@
 		</ul>
 	{/if}
 </Card>
+
+<ConfirmDialog
+	open={pendingDelete !== null}
+	title={t('memory.delete')}
+	description={t('memory.confirmDelete')}
+	confirmLabel={t('memory.delete')}
+	cancelLabel={t('memory.cancel')}
+	onconfirm={() => { const item = pendingDelete; pendingDelete = null; if (item) void remove(item); }}
+	oncancel={() => pendingDelete = null}
+/>

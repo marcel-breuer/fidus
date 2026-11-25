@@ -24,6 +24,7 @@
 	import { messages as catalogs, type MessageKey } from '#lib/i18n/index.ts';
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Card } from '#lib/components/ui/card/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { Label } from '#lib/components/ui/label/index.ts';
@@ -140,7 +141,6 @@
 	}
 
 	async function removeConversation(item: Conversation) {
-		if (!window.confirm(t('chat.confirmDelete', { title: item.title }))) return;
 		busyId = item.id;
 		try {
 			await deleteConversation(item.id);
@@ -387,6 +387,7 @@
 	function statusLabel(status: AgentAction['status']): string {
 		return t(`chat.action${status[0].toUpperCase()}${status.slice(1)}` as MessageKey);
 	}
+	let pendingDelete = $state<Conversation | null>(null);
 </script>
 
 <svelte:head><title>{t('chat.title')} · {t('app.name')}</title></svelte:head>
@@ -396,7 +397,7 @@
 <div class="mx-auto grid h-[calc(100vh-3rem)] min-h-136 max-w-360 grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)] gap-3 max-[720px]:h-auto max-[720px]:min-h-[calc(100vh-3rem)] max-[720px]:grid-cols-[minmax(0,1fr)] max-[720px]:grid-rows-[auto_minmax(26rem,1fr)]">
 	<aside class="glass-chrome min-h-0 min-w-0 overflow-auto p-4 max-[720px]:max-h-56" aria-label={t('chat.conversations')}>
 		<div class="mb-3 grid gap-3">
-			<h1 class="m-0 text-[1.05rem]">{t('chat.conversations')}</h1>
+			<h1 class="m-0 text-[1.05rem] font-bold">{t('chat.conversations')}</h1>
 			<Button variant="outline" onclick={startNew} disabled={streaming}>{t('chat.new')}</Button>
 			<a class="text-[0.85rem]" href="/chat/memories">{t('chat.memoryLink')}</a>
 			<a class="text-[0.85rem]" href="/chat/audit">{t('chat.audit.link')}</a>
@@ -425,7 +426,7 @@
 							</Button>
 							<div class="flex gap-1.5">
 								<Button variant="outline" class="px-2 text-xs" disabled={streaming || busyId === item.id} aria-label={t('chat.rename')} onclick={() => { renamingId = item.id; renameValue = item.title; }}>{t('chat.rename')}</Button>
-								<Button variant="outline" class="px-2 text-xs" disabled={streaming || busyId === item.id} aria-label={t('chat.delete')} onclick={() => void removeConversation(item)}>{t('chat.delete')}</Button>
+								<Button variant="outline" class="px-2 text-xs" disabled={streaming || busyId === item.id} aria-label={t('chat.delete')} onclick={() => pendingDelete = item}>{t('chat.delete')}</Button>
 							</div>
 						{/if}
 					</li>
@@ -446,7 +447,7 @@
 					<article class="w-[min(88%,52rem)] max-[720px]:w-[min(96%,52rem)] {message.role === 'user' ? 'self-end' : 'self-start'}">
 						<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground {message.role === 'user' ? 'text-right' : ''}">{message.role === 'user' ? t('chat.user') : t('chat.assistant')}</p>
 						{#if message.content || message.role === 'user'}
-							<div class="glass-inset px-4 py-3 [overflow-wrap:anywhere] [&_code]:font-mono [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-black/8 [&_pre]:p-3" aria-live={message.id === 'streaming-assistant' ? 'polite' : undefined}>
+							<div class="markdown glass-inset px-4 py-3 [overflow-wrap:anywhere] [&_code]:font-mono [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-black/8 [&_pre]:p-3" aria-live={message.id === 'streaming-assistant' ? 'polite' : undefined}>
 								{@html renderMarkdown(message.content)}
 							</div>
 						{/if}
@@ -551,3 +552,13 @@
 		</form>
 	</Card>
 </div>
+
+<ConfirmDialog
+	open={pendingDelete !== null}
+	title={t('chat.delete')}
+	description={t('chat.confirmDelete', { title: pendingDelete?.title ?? '' })}
+	confirmLabel={t('chat.delete')}
+	cancelLabel={t('common.cancel')}
+	onconfirm={() => { const item = pendingDelete; pendingDelete = null; if (item) void removeConversation(item); }}
+	oncancel={() => pendingDelete = null}
+/>

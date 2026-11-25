@@ -4,6 +4,7 @@ export const en = {
 	'common.error': 'Something went wrong. Please try again.',
 	'common.rateLimited': 'You have reached the request limit. Please wait before trying again.',
 	'common.retry': 'Try again',
+	'common.cancel': 'Cancel',
 	'nav.primary': 'Main navigation',
 	'nav.admin': 'Administration',
 	'nav.empty': 'No modules are available.',

@@ -91,7 +91,7 @@
 
 <svelte:head><title>{t('tasks.title')} · {t('app.name')}</title></svelte:head>
 <Card class="gap-4 p-[clamp(1rem,3vw,1.5rem)]">
-	<h1 class="m-0">{t('tasks.title')}</h1>
+	<h1 class="m-0 text-[1.4rem] font-bold">{t('tasks.title')}</h1>
 	<form class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3" onsubmit={addTask}>
 		<div class="grid gap-1.5"><Label for="task-title" class="font-semibold">{t('tasks.taskTitle')}</Label><Input id="task-title" bind:value={title} maxlength={500} required /></div>
 		<div class="grid gap-1.5"><Label for="task-due" class="font-semibold">{t('tasks.dueAt')}</Label><Input id="task-due" type="datetime-local" bind:value={dueAt} /></div>
