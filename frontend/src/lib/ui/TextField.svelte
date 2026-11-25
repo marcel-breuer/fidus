@@ -1,32 +1,17 @@
 <script lang="ts">
-	import type { HTMLInputAttributes } from 'svelte/elements';
+	import type { HTMLInputAttributes, HTMLInputTypeAttribute } from 'svelte/elements';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
 
 	let {
 		label,
 		value = $bindable(''),
 		...rest
-	}: { label: string; value?: string } & HTMLInputAttributes = $props();
+	}: { label: string; value?: string; type?: Exclude<HTMLInputTypeAttribute, 'file'> } & Omit<HTMLInputAttributes, 'type' | 'value' | 'files'> = $props();
 	const id = $props.id();
 </script>
 
-<div class="field">
-	<label for={id}>{label}</label>
-	<input class="glass-control" {id} bind:value {...rest} />
+<div class="grid gap-1.5">
+	<Label for={id} class="font-semibold">{label}</Label>
+	<Input {id} bind:value {...rest} />
 </div>
-
-<style>
-	.field {
-		display: grid;
-		gap: 0.35rem;
-	}
-	label {
-		font-size: 0.875rem;
-		font-weight: 600;
-	}
-	input {
-		font: inherit;
-		padding: 0.6rem 0.7rem;
-		color: var(--ink);
-		background-color: var(--glass-inset-fill);
-	}
-</style>

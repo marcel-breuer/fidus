@@ -7,7 +7,7 @@ Fidus is an open-source (MIT), self-hostable personal assistant: a chat interfac
 | Topic | Decision |
 |---|---|
 | Backend | Python, FastAPI, SQLAlchemy (async), Alembic |
-| Frontend | SvelteKit (TypeScript) |
+| Frontend | SvelteKit (TypeScript), Tailwind CSS v4 and shadcn-svelte (bits-ui) with the glass theme |
 | Database | PostgreSQL with pgvector (relational data and embeddings), row-level security for user separation |
 | Queue and cache | Redis |
 | Gateway | Nginx, single published port |

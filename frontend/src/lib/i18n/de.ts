@@ -239,6 +239,7 @@ export const de: Record<MessageKey, string> = {
 	'reminders.error': 'Erinnerungen konnten nicht synchronisiert werden.',
 	'nav.tokens': 'Zugriffstokens',
 	'nav.usage': 'Nutzung',
+	'nav.open': 'Navigation öffnen',
 	'usage.title': 'Nutzung',
 	'usage.intro': 'Zähler für deine eigene Aktivität auf dieser Instanz. Sie dienen nur der Information; es wird nichts begrenzt.',
 	'usage.period': 'Zeitraum',

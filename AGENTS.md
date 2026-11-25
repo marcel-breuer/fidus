@@ -66,7 +66,8 @@ Validation commands (once the stack exists):
 
 ## Frontend and i18n
 - Every visible or assistive string goes through the i18n layer with German and English entries. No hard-coded UI copy.
-- Reuse components in `frontend/src/lib/ui` before creating new markup. Provide loading, empty and error states.
+- New UI elements come from shadcn-svelte first: add them with `npx shadcn-svelte add <name>` (configured in `frontend/components.json`, installed under `frontend/src/lib/components/ui`) and style them through the glass theme in `frontend/src/app.css`. Build no custom base component when a shadcn-svelte one exists. `frontend/src/lib/ui` holds only app-specific compositions and compatibility wrappers.
+- Reuse components in `frontend/src/lib/components/ui` and `frontend/src/lib/ui` before creating new markup. Provide loading, empty and error states.
 - Keep accessibility: labels, focus handling, keyboard use, responsive layout.
 
 ## Security and privacy

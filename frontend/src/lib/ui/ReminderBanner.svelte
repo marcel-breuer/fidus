@@ -3,7 +3,8 @@
 	import { dismissReminder, getActiveReminders, mergeReminders, parseReminderPayload } from '#lib/api/reminders.ts';
 	import type { Reminder } from '#lib/api/tasks.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Button } from '#lib/ui/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
 
 	let { enabled }: { enabled: boolean } = $props();
 	const t = getT();
@@ -55,24 +56,15 @@
 </script>
 
 {#if enabled && (active.length > 0 || error)}
-	<section class="glass-panel banner" role="status" aria-live="polite" aria-label={t('reminders.title')}>
+	<Card class="mb-3 gap-2 px-4 py-3" role="status" aria-live="polite" aria-label={t('reminders.title')}>
 		{#if error}<p>{t('reminders.error')}</p>{/if}
 		{#if active.length > 0}
-			<h2>{t('reminders.title')}</h2>
-			<ul>
+			<h2 class="m-0 text-base font-bold">{t('reminders.title')}</h2>
+			<ul class="m-0 grid list-none gap-2 p-0">
 				{#each active as reminder (reminder.id)}
-					<li><span>{reminder.task_title}</span><Button variant="quiet" onclick={() => dismiss(reminder.id)}>{t('reminders.dismiss')}</Button></li>
+					<li class="flex flex-wrap items-center justify-between gap-2"><span class="[overflow-wrap:anywhere]">{reminder.task_title}</span><Button variant="outline" onclick={() => dismiss(reminder.id)}>{t('reminders.dismiss')}</Button></li>
 				{/each}
 			</ul>
 		{/if}
-	</section>
+	</Card>
 {/if}
-
-<style>
-	.banner { margin: 0 0 .75rem; padding: .8rem 1rem; }
-	h2 { margin: 0 0 .5rem; font-size: 1rem; }
-	ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
-	li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
-	span { overflow-wrap: anywhere; }
-	p { margin: 0 0 .5rem; }
-</style>

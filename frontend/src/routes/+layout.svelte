@@ -5,11 +5,16 @@
 	import { logout, logoutAll } from '#lib/api/client.ts';
 	import { LOCALES, LOCALE_COOKIE, type Locale } from '#lib/i18n/index.ts';
 	import { getT, provideT } from '#lib/i18n/context.ts';
-	import { Button, ReminderBanner, Sidebar } from '#lib/ui/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
+	import * as Select from '#lib/components/ui/select/index.ts';
+	import * as SidebarUi from '#lib/components/ui/sidebar/index.ts';
+	import { ReminderBanner, Sidebar } from '#lib/ui/index.ts';
 
 	let { data, children } = $props();
 	provideT(() => data.locale);
 	const t = getT();
+	const languageId = 'language-select';
 
 	async function signOut() {
 		await logout();
@@ -28,104 +33,46 @@
 </script>
 
 {#if data.user}
-	<div class="shell">
-		<aside class="glass-chrome">
-			<p class="brand">{t('app.name')}</p>
-			<Sidebar modules={data.modules} current={page.url.pathname} admin={data.user.role === 'admin'} />
-			<div class="foot">
-				<p class="who">{t('nav.signedInAs', { email: data.user.email })}</p>
-				<label class="lang">
-					<span>{t('nav.language')}</span>
-					<select class="glass-control" value={data.locale} onchange={(e) => setLocale(e.currentTarget.value as Locale)}>
-						{#each LOCALES as locale}
-							<option value={locale}>{t(`language.${locale}`)}</option>
-						{/each}
-					</select>
-				</label>
-				<div class="actions">
-					<Button variant="quiet" onclick={signOut}>{t('nav.logout')}</Button>
-					<Button variant="quiet" onclick={signOutEverywhere}>{t('nav.logoutAll')}</Button>
+	<SidebarUi.Provider>
+		<SidebarUi.Root variant="floating" title={t('app.name')} description={t('nav.primary')} closeLabel={t('nav.open')}>
+			<SidebarUi.Header class="p-5 pb-0">
+				<p class="mx-3 my-0 text-[1.1rem] font-bold">{t('app.name')}</p>
+			</SidebarUi.Header>
+			<SidebarUi.Content class="px-3.5 py-5">
+				<Sidebar modules={data.modules} current={page.url.pathname} admin={data.user.role === 'admin'} />
+			</SidebarUi.Content>
+			<SidebarUi.Footer class="gap-2.5 p-3.5">
+				<p class="m-0 text-[0.8rem] text-muted-foreground [overflow-wrap:anywhere]">{t('nav.signedInAs', { email: data.user.email })}</p>
+				<div class="grid gap-1">
+					<Label for={languageId} class="text-[0.8rem] font-normal">{t('nav.language')}</Label>
+					<Select.Root type="single" value={data.locale} onValueChange={(value) => setLocale(value as Locale)}>
+						<Select.Trigger id={languageId} class="w-full">{t(`language.${data.locale}`)}</Select.Trigger>
+						<Select.Content>
+							{#each LOCALES as locale}
+								<Select.Item value={locale} label={t(`language.${locale}`)} />
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
-			</div>
-		</aside>
-		<main>
-			{#if data.modules.some((module) => module.key === 'tasks')}
-				<ReminderBanner enabled={true} />
-			{/if}
-			{@render children()}
-		</main>
-	</div>
+				<div class="grid grid-cols-2 gap-2">
+					<Button variant="outline" class="h-auto whitespace-normal py-2" onclick={signOut}>{t('nav.logout')}</Button>
+					<Button variant="outline" class="h-auto whitespace-normal py-2" onclick={signOutEverywhere}>{t('nav.logoutAll')}</Button>
+				</div>
+			</SidebarUi.Footer>
+		</SidebarUi.Root>
+		<div class="flex min-w-0 flex-1 flex-col">
+			<header class="flex items-center gap-2 px-3 pt-3 md:hidden">
+				<SidebarUi.Trigger class="size-11" aria-label={t('nav.open')} />
+				<p class="m-0 font-bold">{t('app.name')}</p>
+			</header>
+			<main class="min-w-0 p-6 md:py-9 md:pr-9 md:pl-6">
+				{#if data.modules.some((module) => module.key === 'tasks')}
+					<ReminderBanner enabled={true} />
+				{/if}
+				{@render children()}
+			</main>
+		</div>
+	</SidebarUi.Provider>
 {:else}
 	{@render children()}
 {/if}
-
-<style>
-	.shell {
-		display: grid;
-		grid-template-columns: 15rem minmax(0, 1fr);
-		gap: 0.75rem;
-		padding: 0.75rem;
-		min-height: 100vh;
-		min-width: 0;
-	}
-	aside,
-	main {
-		min-width: 0;
-	}
-	aside {
-		display: flex;
-		flex-direction: column;
-		gap: 1.25rem;
-		padding: 1.25rem 0.9rem;
-	}
-	.brand {
-		margin: 0 0.7rem;
-		font-weight: 700;
-		font-size: 1.1rem;
-	}
-	.foot {
-		margin-top: auto;
-		display: grid;
-		gap: 0.6rem;
-	}
-	.actions {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.45rem;
-	}
-	.who {
-		margin: 0;
-		font-size: 0.8rem;
-		color: var(--muted);
-		overflow-wrap: anywhere;
-	}
-	.lang {
-		display: grid;
-		gap: 0.25rem;
-		font-size: 0.8rem;
-	}
-	select {
-		font: inherit;
-		padding: 0.5rem 0.65rem;
-		color: var(--ink);
-		background-color: var(--glass-inset-fill);
-	}
-	main {
-		padding: 1.5rem;
-	}
-	@media (max-width: 720px) {
-		.shell {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		aside {
-			gap: 0.75rem;
-			padding: 0.75rem;
-		}
-		.foot {
-			margin-top: 0;
-		}
-		main {
-			padding: 0.75rem;
-		}
-	}
-</style>
