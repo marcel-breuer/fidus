@@ -9,13 +9,20 @@
 	import { debounce, getDocumentStatus, groupCitations, reindexDocument, searchKnowledge, type Citation, type DocumentStatus } from '#lib/api/knowledge.ts';
 	import { formatDate } from '#lib/i18n/index.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button, TextField } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
+	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
 
 	const t = getT();
 	let items = $state<FileNode[]>([]);
 	let loading = $state(true);
 	let busy = $state(false);
 	let error = $state('');
+	let pendingDelete = $state<FileNode | null>(null);
 	let folderName = $state('');
 	let editingId = $state<string | null>(null);
 	let editName = $state('');
@@ -167,8 +174,10 @@
 		} catch (cause) { error = messageFor(cause instanceof Error ? cause.message : ''); }
 	}
 
-	async function remove(item: FileNode) {
-		if (!window.confirm(t('files.deleteConfirm', { name: item.name }))) return;
+	async function confirmRemove() {
+		const item = pendingDelete;
+		pendingDelete = null;
+		if (!item) return;
 		try {
 			await deleteNode(item.id);
 			await refresh();
@@ -183,117 +192,102 @@
 </script>
 
 <svelte:head><title>{t('files.title')} · {t('app.name')}</title></svelte:head>
-<section class="glass-panel files">
-	<h1>{t('files.title')}</h1>
-	<nav aria-label={t('files.title')} class="breadcrumbs">
+<Card class="gap-4 p-[clamp(1rem,3vw,1.5rem)]">
+	<h1 class="m-0">{t('files.title')}</h1>
+	<nav aria-label={t('files.title')} class="flex flex-wrap items-center gap-2.5 [overflow-wrap:anywhere]">
 		{#each breadcrumbs as crumb, index (crumb.id ?? 'root')}
 			{#if index > 0}<span aria-hidden="true">/</span>{/if}
 			{#if index === breadcrumbs.length - 1}<span aria-current="page">{crumb.name}</span>
-			{:else}<button type="button" class="crumb" onclick={() => navigate(crumb.id)}>{crumb.name}</button>{/if}
+			{:else}<Button type="button" variant="link" class="h-auto min-h-11 px-1 underline" onclick={() => navigate(crumb.id)}>{crumb.name}</Button>{/if}
 		{/each}
 	</nav>
-	<div class="tools">
-		<form class="create" onsubmit={createFolder}>
-			<TextField label={t('files.folderName')} bind:value={folderName} maxlength={255} required />
-			<Button disabled={busy || !folderName.trim()}>{t('files.createFolder')}</Button>
+	<div class="flex flex-wrap items-end justify-between gap-2.5">
+		<form class="flex flex-[1_1_18rem] flex-wrap items-end gap-2.5" onsubmit={createFolder}>
+			<div class="grid gap-1.5"><Label for="folder-name" class="font-semibold">{t('files.folderName')}</Label><Input id="folder-name" bind:value={folderName} maxlength={255} required /></div>
+			<Button type="submit" disabled={busy || !folderName.trim()}>{t('files.createFolder')}</Button>
 		</form>
-		<label class="file-picker"><span>{t('files.chooseFiles')}</span><input type="file" multiple accept=".txt,.md,.markdown,.pdf,.docx" onchange={selectFiles} /></label>
+		<div class="grid min-w-0 gap-1.5"><Label for="file-picker" class="font-semibold">{t('files.chooseFiles')}</Label><Input id="file-picker" type="file" multiple accept=".txt,.md,.markdown,.pdf,.docx" onchange={selectFiles} class="h-auto max-w-full py-2" /></div>
 	</div>
-	{#if error}<Alert>{error}</Alert>{/if}
-	<section class="search" aria-labelledby="knowledge-heading">
-		<h2 id="knowledge-heading">{t('files.searchTitle')}</h2>
-		<TextField label={t('files.searchLabel')} placeholder={t('files.searchPlaceholder')} bind:value={searchQuery} oninput={() => debouncedSearch(searchQuery)} />
-		{#if searchLoading}<p role="status">{t('files.searching')}</p>
-		{:else if searchError}<p role="alert">{t('files.searchError')}</p>
-		{:else if searchQuery.trim() && searchResults.length === 0}<p class="empty">{t('files.searchEmpty')}</p>
+	{#if error}<Alert variant="destructive"><AlertDescription class="text-foreground">{error}</AlertDescription></Alert>{/if}
+	<section class="grid gap-3 border-t border-(--glass-rim) pt-4" aria-labelledby="knowledge-heading">
+		<h2 id="knowledge-heading" class="m-0 text-lg">{t('files.searchTitle')}</h2>
+		<div class="grid gap-1.5"><Label for="knowledge-search" class="font-semibold">{t('files.searchLabel')}</Label><Input id="knowledge-search" placeholder={t('files.searchPlaceholder')} bind:value={searchQuery} oninput={() => debouncedSearch(searchQuery)} /></div>
+		{#if searchLoading}<p role="status" class="m-0">{t('files.searching')}</p>
+		{:else if searchError}<p role="alert" class="m-0">{t('files.searchError')}</p>
+		{:else if searchQuery.trim() && searchResults.length === 0}<p class="m-0 text-muted-foreground">{t('files.searchEmpty')}</p>
 		{:else if searchGroups.length}
-			<ul class="search-results">
+			<ul class="m-0 grid list-none gap-3 p-0">
 				{#each searchGroups as group (group.nodeId)}
-					<li><a href={group.memoId ? '/audio' : group.folderId ? `/files?folder=${encodeURIComponent(group.folderId)}` : '/files'}>{group.fileName}</a>
-						<ol>{#each group.citations as citation (citation.chunk_id)}<li><span>{citation.version === null ? t('audio.memoSource') : t('files.resultPosition', { position: citation.position + 1, version: citation.version })}</span><p>{citation.snippet}</p></li>{/each}</ol>
+					<li class="glass-inset rounded-xl p-3"><a class="font-semibold text-primary underline" href={group.memoId ? '/audio' : group.folderId ? `/files?folder=${encodeURIComponent(group.folderId)}` : '/files'}>{group.fileName}</a>
+						<ol class="grid gap-2 pl-6">{#each group.citations as citation (citation.chunk_id)}<li><span>{citation.version === null ? t('audio.memoSource') : t('files.resultPosition', { position: citation.position + 1, version: citation.version })}</span><p class="my-1 text-muted-foreground [overflow-wrap:anywhere]">{citation.snippet}</p></li>{/each}</ol>
 					</li>
 				{/each}
 			</ul>
 		{/if}
 	</section>
 	{#if uploadStates.length}
-		<ul class="uploads" aria-label={t('files.upload')}>
+		<ul class="m-0 grid list-none gap-3 p-0" aria-label={t('files.upload')}>
 			{#each uploadStates as upload (upload.id)}
-				<li role="status">
+				<li role="status" class="glass-inset grid gap-1.5 rounded-xl p-3">
 					{#if upload.state === 'uploading'}{t('files.uploading', { name: upload.name, progress: upload.progress })}
 					{:else if upload.state === 'done'}{t('files.uploaded', { name: upload.name })}
 					{:else}{t('files.uploadFailed', { name: upload.name, reason: upload.reason ?? t('files.error') })}{/if}
-					{#if upload.state === 'uploading'}<progress max="100" value={upload.progress} aria-label={t('files.uploading', { name: upload.name, progress: upload.progress })}></progress>{/if}
+					{#if upload.state === 'uploading'}<progress class="w-full accent-primary" max="100" value={upload.progress} aria-label={t('files.uploading', { name: upload.name, progress: upload.progress })}></progress>{/if}
 				</li>
 			{/each}
 		</ul>
 	{/if}
-	{#if loading}<p role="status">{t('files.loading')}</p>
-	{:else if items.length === 0}<p class="empty">{t('files.empty')}</p>
+	{#if loading}<p role="status" class="m-0">{t('files.loading')}</p>
+	{:else if items.length === 0}<p class="m-0 text-muted-foreground">{t('files.empty')}</p>
 	{:else}
-		<ul class="items">
-			{#each items as item (item.id)}
-				<li>
-					<div class="entry">
-						{#if editingId === item.id}
-							<div class="rename"><TextField label={t('files.rename')} bind:value={editName} maxlength={255} /><Button onclick={() => saveRename(item)}>{t('files.save')}</Button><Button variant="quiet" onclick={() => editingId = null}>{t('files.cancel')}</Button></div>
-						{:else if item.kind === 'folder'}
-							<button type="button" class="name folder" onclick={() => navigate(item.id)}>{item.name}</button>
-						{:else}
-							<a class="name" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download`}>{item.name}</a>
-						{/if}
-						<dl><div><dt>{t('files.size')}</dt><dd>{item.size_bytes === null ? t('files.notAvailable') : formatFileSize(item.size_bytes, page.data.locale)}</dd></div><div><dt>{t('files.modified')}</dt><dd>{formatDate(page.data.locale, new Date(item.updated_at))}</dd></div></dl>
-					</div>
-					<div class="actions">
-						{#if editingId !== item.id}<Button variant="quiet" onclick={() => beginRename(item)}>{t('files.rename')}</Button>{/if}
-						{#if item.kind === 'file'}
-							{#if documentStates[item.id]}<span class="index-status" role="status">{statusLabel(documentStates[item.id])}</span>{#if documentStates[item.id].status === 'failed'}<Button variant="quiet" onclick={() => reindex(item)}>{t('files.reindex')}</Button>{/if}{/if}
-							<a class="button-link" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download`}>{t('files.download')}</a>
-							<details ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadVersions(item); }}><summary>{t('files.versions')}</summary>{#if versions[item.id]}<ol>{#each versions[item.id] as version (version.id)}<li><a href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download?version=${version.version}`}>{t('files.versions')} {version.version}</a><span>{formatFileSize(version.size_bytes, page.data.locale)} · {formatDate(page.data.locale, new Date(version.created_at))}</span></li>{/each}</ol>{/if}</details>
-						{/if}
-						<Button variant="quiet" onclick={() => remove(item)}>{t('files.delete')}</Button>
-					</div>
-				</li>
-			{/each}
-		</ul>
+		<Table.Root>
+			<Table.Header>
+				<Table.Row>
+					<Table.Head>{t('files.title')}</Table.Head>
+					<Table.Head class="hidden sm:table-cell">{t('files.size')}</Table.Head>
+					<Table.Head class="hidden sm:table-cell">{t('files.modified')}</Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body>
+				{#each items as item (item.id)}
+					<Table.Row>
+						<Table.Cell class="min-w-48 whitespace-normal align-top [overflow-wrap:anywhere]">
+							{#if editingId === item.id}
+								<div class="flex flex-wrap items-end gap-2.5"><div class="grid gap-1.5"><Label for={`rename-${item.id}`} class="font-semibold">{t('files.rename')}</Label><Input id={`rename-${item.id}`} bind:value={editName} maxlength={255} /></div><Button type="button" onclick={() => saveRename(item)}>{t('files.save')}</Button><Button type="button" variant="outline" onclick={() => editingId = null}>{t('files.cancel')}</Button></div>
+							{:else if item.kind === 'folder'}
+								<Button type="button" variant="link" class="h-auto min-h-11 whitespace-normal px-0 text-left font-semibold text-foreground" onclick={() => navigate(item.id)}>{item.name}</Button>
+							{:else}
+								<a class="inline-flex min-h-11 items-center font-semibold text-foreground" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download`}>{item.name}</a>
+							{/if}
+							<dl class="m-0 flex flex-wrap gap-x-4 text-sm text-muted-foreground sm:hidden"><div class="flex gap-1"><dt class="font-semibold">{t('files.size')}</dt><dd class="m-0">{item.size_bytes === null ? t('files.notAvailable') : formatFileSize(item.size_bytes, page.data.locale)}</dd></div><div class="flex gap-1"><dt class="font-semibold">{t('files.modified')}</dt><dd class="m-0">{formatDate(page.data.locale, new Date(item.updated_at))}</dd></div></dl>
+							<div class="mt-1 flex flex-wrap items-center gap-2.5">
+								{#if editingId !== item.id}<Button type="button" variant="outline" onclick={() => beginRename(item)}>{t('files.rename')}</Button>{/if}
+								{#if item.kind === 'file'}
+									{#if documentStates[item.id]}<span class="my-1 text-muted-foreground [overflow-wrap:anywhere]" role="status">{statusLabel(documentStates[item.id])}</span>{#if documentStates[item.id].status === 'failed'}<Button type="button" variant="outline" onclick={() => reindex(item)}>{t('files.reindex')}</Button>{/if}{/if}
+									<Button variant="outline" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download`}>{t('files.download')}</Button>
+									<details class="self-center" ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadVersions(item); }}><summary class="min-h-11 cursor-pointer leading-[2.75rem]">{t('files.versions')}</summary>{#if versions[item.id]}<ol class="min-w-[min(18rem,75vw)] pl-5">{#each versions[item.id] as version (version.id)}<li class="grid gap-1 py-1"><a class="text-primary underline" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download?version=${version.version}`}>{t('files.versions')} {version.version}</a><span class="text-muted-foreground">{formatFileSize(version.size_bytes, page.data.locale)} · {formatDate(page.data.locale, new Date(version.created_at))}</span></li>{/each}</ol>{/if}</details>
+								{/if}
+								<Button type="button" variant="outline" onclick={() => pendingDelete = item}>{t('files.delete')}</Button>
+							</div>
+						</Table.Cell>
+						<Table.Cell class="hidden align-top text-muted-foreground sm:table-cell">{item.size_bytes === null ? t('files.notAvailable') : formatFileSize(item.size_bytes, page.data.locale)}</Table.Cell>
+						<Table.Cell class="hidden align-top text-muted-foreground sm:table-cell">{formatDate(page.data.locale, new Date(item.updated_at))}</Table.Cell>
+					</Table.Row>
+				{/each}
+			</Table.Body>
+		</Table.Root>
 	{/if}
-</section>
+</Card>
 
-<style>
-	.files { padding: clamp(1rem, 3vw, 1.5rem); display: grid; gap: 1rem; }
-	.search { display: grid; gap: .7rem; border-top: 1px solid var(--glass-rim); padding-top: 1rem; }
-	.search h2 { margin: 0; font-size: 1.15rem; }
-	.search-results { list-style: none; padding: 0; margin: 0; display: grid; gap: .8rem; }
-	.search-results > li { border: 1px solid var(--glass-rim); border-radius: .8rem; padding: .8rem; }
-	.search-results a { color: var(--accent); font-weight: 650; }
-	.search-results ol { display: grid; gap: .5rem; padding-left: 1.4rem; }
-	.search-results p, .index-status { margin: .2rem 0; color: var(--muted); overflow-wrap: anywhere; }
-	h1 { margin: 0; }
-	.breadcrumbs, .tools, .create, .actions, .rename { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; }
-	.breadcrumbs { align-items: center; overflow-wrap: anywhere; }
-	.crumb { border: 0; background: transparent; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; padding: .2rem; }
-	.tools { align-items: end; justify-content: space-between; }
-	.create { flex: 1 1 18rem; }
-	.file-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; min-width: 0; font-weight: 600; }
-	.file-picker input { width: 100%; max-width: 100%; font: inherit; }
-	.uploads, .items { list-style: none; padding: 0; margin: 0; display: grid; gap: .7rem; }
-	.uploads li, .items > li { border: 1px solid var(--glass-rim); border-radius: .8rem; padding: .8rem; }
-	.uploads li { display: grid; gap: .4rem; }
-	progress { width: 100%; accent-color: var(--accent); }
-	.items > li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .8rem; }
-	.entry { display: grid; gap: .5rem; min-width: min(100%, 16rem); flex: 1 1 20rem; }
-	.name { color: var(--ink); font-weight: 650; overflow-wrap: anywhere; }
-	.folder { text-align: left; border: 0; background: none; padding: 0; font: inherit; cursor: pointer; }
-	dl { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin: 0; color: var(--muted); font-size: .875rem; }
-	dl div { display: flex; gap: .3rem; }
-	dt { font-weight: 600; } dd { margin: 0; }
-	.actions { align-items: center; }
-	.button-link { color: var(--accent); border: 1px solid var(--glass-rim); border-radius: .625rem; padding: .55rem .8rem; font-weight: 600; }
-	details { align-self: center; }
-	details summary { cursor: pointer; }
-	details ol { padding-left: 1.2rem; min-width: min(18rem, 75vw); }
-	details li { display: grid; gap: .2rem; padding: .3rem 0; }
-	details li span, .empty { color: var(--muted); }
-	.rename { align-items: end; }
-	@media (max-width: 40rem) { .items > li { display: grid; } .actions { align-items: stretch; } }
-</style>
+<Dialog.Root open={pendingDelete !== null} onOpenChange={(open) => { if (!open) pendingDelete = null; }}>
+	<Dialog.Content closeLabel={t('files.cancel')}>
+		<Dialog.Header>
+			<Dialog.Title>{t('files.delete')}</Dialog.Title>
+			<Dialog.Description>{t('files.deleteConfirm', { name: pendingDelete?.name ?? '' })}</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button type="button" variant="outline" onclick={() => pendingDelete = null}>{t('files.cancel')}</Button>
+			<Button type="button" onclick={confirmRemove}>{t('files.delete')}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
