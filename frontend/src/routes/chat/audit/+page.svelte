@@ -4,7 +4,9 @@
 	import { listAgentAudit, type AgentAuditEntry } from '#lib/api/agent.ts';
 	import { formatDate } from '#lib/i18n/index.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
 
 	const t = getT();
 	let entries = $state<AgentAuditEntry[]>([]);
@@ -28,38 +30,29 @@
 </script>
 
 <svelte:head><title>{t('chat.audit.title')} · {t('app.name')}</title></svelte:head>
-<div class="audit-page">
-	<h1>{t('chat.audit.title')}</h1>
-	<p class="hint">{t('chat.audit.intro')}</p>
+<div class="mx-auto grid w-[min(56rem,100%)] gap-4">
+	<h1 class="m-0">{t('chat.audit.title')}</h1>
+	<p class="m-0 text-muted-foreground">{t('chat.audit.intro')}</p>
 	{#if failed}
-		<Alert>{t('chat.audit.error')}</Alert>
-		<Button variant="quiet" onclick={load}>{t('common.retry')}</Button>
+		<Alert variant="destructive"><AlertDescription class="text-foreground">{t('chat.audit.error')}</AlertDescription></Alert>
+		<Button variant="outline" onclick={load}>{t('common.retry')}</Button>
 	{:else if loading}
-		<p aria-live="polite">{t('common.loading')}</p>
+		<p class="m-0" aria-live="polite">{t('common.loading')}</p>
 	{:else if entries.length === 0}
-		<p class="glass-panel empty">{t('chat.audit.empty')}</p>
+		<Card class="p-4"><p class="m-0">{t('chat.audit.empty')}</p></Card>
 	{:else}
-		<ul class="entries">
+		<ul class="m-0 grid list-none gap-2.5 p-0">
 			{#each entries as entry (entry.id)}
-				<li class="glass-panel entry">
-					<div>
-						<strong>{entry.action}</strong>
-						<p>{t('chat.audit.target', { type: entry.target_type, id: entry.target_id ?? t('chat.audit.noTarget') })}</p>
-					</div>
-					<time datetime={entry.created_at}>{formatDate(locale, new Date(entry.created_at))}</time>
+				<li>
+					<Card class="flex-row flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+						<div>
+							<strong>{entry.action}</strong>
+							<p class="mx-0 mt-1 mb-0 text-muted-foreground [overflow-wrap:anywhere]">{t('chat.audit.target', { type: entry.target_type, id: entry.target_id ?? t('chat.audit.noTarget') })}</p>
+						</div>
+						<time class="text-sm text-muted-foreground" datetime={entry.created_at}>{formatDate(locale, new Date(entry.created_at))}</time>
+					</Card>
 				</li>
 			{/each}
 		</ul>
 	{/if}
 </div>
-
-<style>
-	.audit-page { display: grid; gap: 1rem; width: min(56rem, 100%); margin: 0 auto; }
-	.audit-page h1, .audit-page p { margin: 0; }
-	.hint { color: var(--muted); }
-	.empty { padding: 1rem; }
-	.entries { display: grid; gap: 0.65rem; list-style: none; margin: 0; padding: 0; }
-	.entry { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 0.9rem 1rem; }
-	.entry p { color: var(--muted); margin-top: 0.25rem; overflow-wrap: anywhere; }
-	.entry time { color: var(--muted); font-size: 0.875rem; }
-</style>
