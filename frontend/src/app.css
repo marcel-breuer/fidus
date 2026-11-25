@@ -27,53 +27,42 @@
 	--glass-inset-fill: var(--glass-tint);
 	--glass-blur: none;
 
-	--ink: #0f2530;
-	--muted: #3d5a69;
-	--accent-ink: #0b2a38;
+	--foreground: #0f2530;
+	--muted-foreground: #3d5a69;
+	--primary-foreground: #0b2a38;
 	--accent-text: #0a5a7d;
 	--danger: #a4342a;
 	--danger-bg: #fbe9e6;
-	--focus: #0a5a7d;
-	--hover: var(--glass-tint);
+	--ring: #0a5a7d;
+	--surface-hover: var(--glass-tint);
 
 	--blob-1: color-mix(in srgb, var(--brand) 60%, transparent);
 	--blob-2: color-mix(in srgb, var(--brand-deep) 40%, transparent);
 	--blob-3: color-mix(in srgb, var(--brand) 45%, transparent);
 	color-scheme: light dark;
 
-	/*
-	 * shadcn theme variables. Legacy route styles still read --accent, --muted, --line and
-	 * --ink; those names keep their old meaning until the routes are migrated, so the
-	 * shadcn "muted" and "accent" surfaces are mapped in @theme below instead of here.
-	 */
-	--accent: var(--brand);
-	--line: var(--glass-border);
+	/* shadcn theme variables, pointing at the glass tokens above. */
 	--background: var(--glass-solid);
-	--foreground: var(--ink);
 	--card: var(--glass-fill);
-	--card-foreground: var(--ink);
+	--card-foreground: var(--foreground);
 	--popover: var(--glass-fill);
-	--popover-foreground: var(--ink);
+	--popover-foreground: var(--foreground);
 	--primary: var(--brand);
-	--primary-foreground: var(--accent-ink);
 	--secondary: var(--glass-inset-fill);
-	--secondary-foreground: var(--ink);
+	--secondary-foreground: var(--foreground);
 	--surface-muted: var(--glass-inset-fill);
-	--surface-hover: var(--hover);
-	--muted-foreground: var(--muted);
-	--accent-foreground: var(--ink);
+	--accent-foreground: var(--foreground);
 	--destructive: var(--danger);
 	--border: var(--glass-border);
 	--input: var(--glass-border);
-	--ring: var(--focus);
 	--sidebar: transparent;
-	--sidebar-foreground: var(--ink);
+	--sidebar-foreground: var(--foreground);
 	--sidebar-primary: var(--brand);
-	--sidebar-primary-foreground: var(--accent-ink);
-	--sidebar-accent: var(--hover);
-	--sidebar-accent-foreground: var(--ink);
+	--sidebar-primary-foreground: var(--primary-foreground);
+	--sidebar-accent: var(--surface-hover);
+	--sidebar-accent-foreground: var(--foreground);
 	--sidebar-border: var(--glass-border);
-	--sidebar-ring: var(--focus);
+	--sidebar-ring: var(--ring);
 	--radius: 0.625rem;
 }
 
@@ -86,13 +75,13 @@
 		--glass-rim: rgb(255 255 255 / 0.08);
 		--glass-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
 
-		--ink: #e6f3f9;
-		--muted: #a6c0cc;
+		--foreground: #e6f3f9;
+		--muted-foreground: #a6c0cc;
 		--accent-text: #a4ddf5;
 		--danger: #f2a79e;
 		--danger-bg: #3a2220;
-		--focus: #a4ddf5;
-		--hover: rgb(255 255 255 / 0.08);
+		--ring: #a4ddf5;
+		--surface-hover: rgb(255 255 255 / 0.08);
 
 		--blob-1: color-mix(in srgb, #0f3a4d 42%, transparent);
 		--blob-2: color-mix(in srgb, #0c2d3c 46%, transparent);
@@ -125,24 +114,24 @@
 @media (prefers-contrast: more) {
 	:root {
 		--glass-border: #49616d;
-		--muted: #29414d;
-		--focus: #004a6c;
+		--muted-foreground: #29414d;
+		--ring: #004a6c;
 	}
 	@media (prefers-color-scheme: dark) {
 		:root {
 			--glass-border: #7994a0;
-			--muted: #c4d5dc;
-			--focus: #b9e9ff;
+			--muted-foreground: #c4d5dc;
+			--ring: #b9e9ff;
 		}
 	}
 }
 
 @media (forced-colors: active) {
 	:root {
-		--ink: CanvasText;
-		--muted: CanvasText;
+		--foreground: CanvasText;
+		--muted-foreground: CanvasText;
 		--accent-text: LinkText;
-		--focus: Highlight;
+		--ring: Highlight;
 		--glass-border: CanvasText;
 	}
 }
@@ -198,7 +187,7 @@
 	body {
 		margin: 0;
 		min-height: 100vh;
-		color: var(--ink);
+		color: var(--foreground);
 		line-height: 1.5;
 		background-color: var(--glass-solid);
 		background-image:
@@ -208,93 +197,15 @@
 		background-attachment: fixed;
 	}
 
-	/* Tailwind's reset strips the browser defaults the not yet migrated routes still rely on. */
-	h1 {
-		font-size: 1.4rem;
-		font-weight: 700;
-		margin: 0 0 1rem;
-	}
-	h2 {
-		font-size: 1.5em;
-		font-weight: 700;
-		margin: 0.83em 0;
-	}
-	h3 {
-		font-size: 1.17em;
-		font-weight: 700;
-		margin: 1em 0;
-	}
-	h4,
-	h5,
-	h6 {
-		font-weight: 700;
-		margin: 1.33em 0;
-	}
-	p,
-	dl,
-	pre {
-		margin-block: 1em;
-	}
-	ul:not([data-slot]),
-	ol:not([data-slot]) {
-		margin-block: 1em;
-		padding-inline-start: 2.5rem;
-	}
-	ul:not([data-slot]) {
-		list-style: disc;
-	}
-	ol:not([data-slot]) {
-		list-style: decimal;
-	}
+	/* Links outside shadcn components (auth switches, inline sources) keep a readable colour. */
 	a:not([data-slot]) {
 		color: var(--accent-text);
 		text-decoration: underline;
 	}
 
 	:focus-visible {
-		outline: 3px solid var(--focus);
+		outline: 3px solid var(--ring);
 		outline-offset: 2px;
-	}
-
-	/* Touch target size for native controls that are not shadcn components yet. */
-	button:not([data-slot]),
-	input:not([data-slot]):not([type='checkbox']):not([type='radio']),
-	select:not([data-slot]),
-	textarea:not([data-slot]),
-	summary {
-		min-height: 44px;
-	}
-
-	input:not([data-slot]):not([type='checkbox']):not([type='radio']),
-	select:not([data-slot]),
-	textarea:not([data-slot]),
-	input[type='file'] {
-		color: var(--ink);
-	}
-
-	input[type='file'] {
-		min-width: 0;
-		max-width: 100%;
-		font: inherit;
-	}
-
-	input[type='file']::file-selector-button {
-		min-height: 40px;
-		margin-inline-end: 0.65rem;
-		padding: 0.4rem 0.75rem;
-		border: 1px solid var(--glass-border);
-		border-radius: 0.5rem;
-		background: var(--glass-inset-fill);
-		color: var(--ink);
-		font: inherit;
-		font-weight: 600;
-		cursor: pointer;
-	}
-
-	input::placeholder,
-	textarea::placeholder {
-		color: var(--muted);
-		opacity: 1;
 	}
 }
 
@@ -303,6 +214,27 @@
  * Layered as components so Tailwind utilities (rounded-*, p-*) can still adjust them.
  */
 @layer components {
+	/* Rendered chat markdown: paragraphs, lists, code blocks and links as plain elements. */
+	.markdown p,
+	.markdown pre {
+		margin-block: 1em;
+	}
+	.markdown ul,
+	.markdown ol {
+		margin-block: 1em;
+		padding-inline-start: 1.5rem;
+	}
+	.markdown ul {
+		list-style: disc;
+	}
+	.markdown ol {
+		list-style: decimal;
+	}
+	.markdown a {
+		color: var(--accent-text);
+		text-decoration: underline;
+	}
+
 	.glass-panel,
 	.glass-chrome,
 	.glass-inset,
@@ -319,7 +251,7 @@
 	.glass-panel,
 	.glass-chrome {
 		border-radius: 1.25rem;
-		color: var(--ink);
+		color: var(--foreground);
 		-webkit-backdrop-filter: var(--glass-blur);
 		backdrop-filter: var(--glass-blur);
 	}
@@ -356,17 +288,12 @@
 
 	.glass-control:is(input, select, textarea, [data-slot='select-trigger']) {
 		border-color: var(--glass-border);
-		color: var(--ink);
+		color: var(--foreground);
 	}
 
 	.glass-control:hover:not(:disabled) {
-		background-color: var(--hover);
+		background-color: var(--surface-hover);
 		border-color: var(--glass-border);
-	}
-
-	/* Chrome sits on the fixed colour field; menu rows read as a surface step, not a glow. */
-	.glass-row:hover {
-		background-color: var(--hover);
 	}
 }
 
@@ -392,13 +319,6 @@
 	select.glass-control,
 	textarea.glass-control,
 	[data-slot='select-trigger'].glass-control {
-		color: #e6f3f9;
-		background-color: #14252e;
-	}
-	input[type='file'] {
-		color: #e6f3f9;
-	}
-	input[type='file']::file-selector-button {
 		color: #e6f3f9;
 		background-color: #14252e;
 	}

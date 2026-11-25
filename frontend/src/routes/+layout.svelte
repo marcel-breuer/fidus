@@ -9,7 +9,8 @@
 	import { Label } from '#lib/components/ui/label/index.ts';
 	import * as Select from '#lib/components/ui/select/index.ts';
 	import * as SidebarUi from '#lib/components/ui/sidebar/index.ts';
-	import { ReminderBanner, Sidebar } from '#lib/ui/index.ts';
+	import Sidebar from '#lib/components/app/Sidebar.svelte';
+	import ReminderBanner from '#lib/components/app/ReminderBanner.svelte';
 
 	let { data, children } = $props();
 	provideT(() => data.locale);

@@ -31,7 +31,7 @@
 
 <svelte:head><title>{t('chat.audit.title')} · {t('app.name')}</title></svelte:head>
 <div class="mx-auto grid w-[min(56rem,100%)] gap-4">
-	<h1 class="m-0">{t('chat.audit.title')}</h1>
+	<h1 class="m-0 text-[1.4rem] font-bold">{t('chat.audit.title')}</h1>
 	<p class="m-0 text-muted-foreground">{t('chat.audit.intro')}</p>
 	{#if failed}
 		<Alert variant="destructive"><AlertDescription class="text-foreground">{t('chat.audit.error')}</AlertDescription></Alert>

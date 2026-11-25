@@ -12,7 +12,7 @@
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Card } from '#lib/components/ui/card/index.ts';
-	import * as Dialog from '#lib/components/ui/dialog/index.ts';
+	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { Label } from '#lib/components/ui/label/index.ts';
 	import * as Table from '#lib/components/ui/table/index.ts';
@@ -174,10 +174,7 @@
 		} catch (cause) { error = messageFor(cause instanceof Error ? cause.message : ''); }
 	}
 
-	async function confirmRemove() {
-		const item = pendingDelete;
-		pendingDelete = null;
-		if (!item) return;
+	async function confirmRemove(item: FileNode) {
 		try {
 			await deleteNode(item.id);
 			await refresh();
@@ -193,7 +190,7 @@
 
 <svelte:head><title>{t('files.title')} · {t('app.name')}</title></svelte:head>
 <Card class="gap-4 p-[clamp(1rem,3vw,1.5rem)]">
-	<h1 class="m-0">{t('files.title')}</h1>
+	<h1 class="m-0 text-[1.4rem] font-bold">{t('files.title')}</h1>
 	<nav aria-label={t('files.title')} class="flex flex-wrap items-center gap-2.5 [overflow-wrap:anywhere]">
 		{#each breadcrumbs as crumb, index (crumb.id ?? 'root')}
 			{#if index > 0}<span aria-hidden="true">/</span>{/if}
@@ -279,15 +276,12 @@
 	{/if}
 </Card>
 
-<Dialog.Root open={pendingDelete !== null} onOpenChange={(open) => { if (!open) pendingDelete = null; }}>
-	<Dialog.Content closeLabel={t('files.cancel')}>
-		<Dialog.Header>
-			<Dialog.Title>{t('files.delete')}</Dialog.Title>
-			<Dialog.Description>{t('files.deleteConfirm', { name: pendingDelete?.name ?? '' })}</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer>
-			<Button type="button" variant="outline" onclick={() => pendingDelete = null}>{t('files.cancel')}</Button>
-			<Button type="button" onclick={confirmRemove}>{t('files.delete')}</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<ConfirmDialog
+	open={pendingDelete !== null}
+	title={t('files.delete')}
+	description={t('files.deleteConfirm', { name: pendingDelete?.name ?? '' })}
+	confirmLabel={t('files.delete')}
+	cancelLabel={t('files.cancel')}
+	onconfirm={() => { const item = pendingDelete; pendingDelete = null; if (item) void confirmRemove(item); }}
+	oncancel={() => pendingDelete = null}
+/>

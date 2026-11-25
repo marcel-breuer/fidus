@@ -22,6 +22,7 @@
 	import { getT } from '#lib/i18n/context.ts';
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
+	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Card, CardContent, CardHeader, CardTitle } from '#lib/components/ui/card/index.ts';
 	import { Checkbox } from '#lib/components/ui/checkbox/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
@@ -77,7 +78,6 @@
 	}
 
 	async function removeGrant(grant: OAuthGrant) {
-		if (!confirm(t('oauth.grants.revokeConfirm', { name: grant.client_name }))) return;
 		busyId = grant.id;
 		errorKey = null;
 		try {
@@ -91,7 +91,6 @@
 	}
 
 	async function removeToken(token: ApiToken) {
-		if (!confirm(t('tokens.revokeConfirm', { name: token.name }))) return;
 		busyId = token.id;
 		errorKey = null;
 		try {
@@ -114,6 +113,8 @@
 			errorKey = 'common.error';
 		}
 	}
+	let pendingToken = $state<ApiToken | null>(null);
+	let pendingGrant = $state<OAuthGrant | null>(null);
 </script>
 
 <svelte:head><title>{t('tokens.title')} · {t('app.name')}</title></svelte:head>
@@ -190,7 +191,7 @@
 								·
 								{token.last_used_at ? t('tokens.lastUsed', { date: fmt(token.last_used_at) }) : t('tokens.neverUsed')}</span>
 							</div>
-							<Button type="button" variant="outline" disabled={busyId === token.id} onclick={() => removeToken(token)}>{t('tokens.revoke')}</Button>
+							<Button type="button" variant="outline" disabled={busyId === token.id} onclick={() => pendingToken = token}>{t('tokens.revoke')}</Button>
 						</li>
 					{/each}
 				</ul>
@@ -217,7 +218,7 @@
 								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{grant.scopes.map((scope) => t(`tokens.scope.${scope}`)).join(', ')}</span>
 								<span class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{t('oauth.grants.expires', { date: fmt(grant.expires_at) })}</span>
 							</div>
-							<Button type="button" variant="outline" disabled={busyId === grant.id} onclick={() => removeGrant(grant)}>{t('tokens.revoke')}</Button>
+							<Button type="button" variant="outline" disabled={busyId === grant.id} onclick={() => pendingGrant = grant}>{t('tokens.revoke')}</Button>
 						</li>
 					{/each}
 				</ul>
@@ -225,3 +226,23 @@
 		</CardContent>
 	</Card>
 </div>
+
+<ConfirmDialog
+	open={pendingToken !== null}
+	title={t('tokens.revoke')}
+	description={t('tokens.revokeConfirm', { name: pendingToken?.name ?? '' })}
+	confirmLabel={t('tokens.revoke')}
+	cancelLabel={t('common.cancel')}
+	onconfirm={() => { const item = pendingToken; pendingToken = null; if (item) void removeToken(item); }}
+	oncancel={() => pendingToken = null}
+/>
+
+<ConfirmDialog
+	open={pendingGrant !== null}
+	title={t('tokens.revoke')}
+	description={t('oauth.grants.revokeConfirm', { name: pendingGrant?.client_name ?? '' })}
+	confirmLabel={t('tokens.revoke')}
+	cancelLabel={t('common.cancel')}
+	onconfirm={() => { const item = pendingGrant; pendingGrant = null; if (item) void removeGrant(item); }}
+	oncancel={() => pendingGrant = null}
+/>
