@@ -13,7 +13,10 @@
 		type UsagePeriod
 	} from '#lib/api/usage.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card, CardContent, CardHeader, CardTitle } from '#lib/components/ui/card/index.ts';
+	import * as Table from '#lib/components/ui/table/index.ts';
 
 	const t = getT();
 	let usage = $state<Usage | null>(null);
@@ -39,88 +42,76 @@
 </script>
 
 <svelte:head><title>{t('usage.title')} · {t('app.name')}</title></svelte:head>
-<div class="usage-page">
-	<h1>{t('usage.title')}</h1>
-	<p class="intro">{t('usage.intro')}</p>
+<div class="mx-auto grid w-[min(56rem,100%)] gap-4 [&_:is(h1,h2,h3,p,dl,ul)]:m-0">
+	<h1 class="text-2xl font-semibold">{t('usage.title')}</h1>
+	<p class="text-muted-foreground">{t('usage.intro')}</p>
 
-	<div class="periods" role="group" aria-label={t('usage.period')}>
+	<div class="flex flex-wrap gap-2" role="group" aria-label={t('usage.period')}>
 		{#each USAGE_PERIODS as days (days)}
-			<Button variant={period === days ? 'primary' : 'quiet'} aria-pressed={period === days} disabled={loading} onclick={() => load(days)}>
+			<Button type="button" variant={period === days ? 'default' : 'outline'} aria-pressed={period === days} disabled={loading} onclick={() => load(days)}>
 				{t(`usage.period.${days}`)}
 			</Button>
 		{/each}
 	</div>
 
 	{#if failed}
-		<Alert>{t('common.error')}</Alert>
+		<Alert variant="destructive">
+			<AlertDescription class="text-foreground">{t('common.error')}</AlertDescription>
+		</Alert>
 	{/if}
 
-	<section class="glass-panel section" aria-labelledby="totals-title" aria-busy={loading}>
-		<h2 id="totals-title">{t('usage.totals')}</h2>
-		{#if loading && !usage}
-			<p>{t('common.loading')}</p>
-		{:else if usage}
-			<dl class="totals">
-				{#each USAGE_METRICS as metric (metric)}
-					<div class="total">
-						<dt>{t(`usage.metric.${metric}`)}</dt>
-						<dd>{formatAmount(locale, metric, usage.totals[metric])}</dd>
-					</div>
-				{/each}
-			</dl>
-		{/if}
-	</section>
+	<Card class="min-w-0" role="region" aria-labelledby="totals-title" aria-busy={loading}>
+		<CardHeader>
+			<CardTitle><h2 id="totals-title" class="text-lg font-semibold">{t('usage.totals')}</h2></CardTitle>
+		</CardHeader>
+		<CardContent>
+			{#if loading && !usage}
+				<p>{t('common.loading')}</p>
+			{:else if usage}
+				<dl class="m-0 grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3">
+					{#each USAGE_METRICS as metric (metric)}
+						<div class="glass-inset grid gap-1 rounded-lg p-3.5">
+							<dt class="text-sm text-muted-foreground">{t(`usage.metric.${metric}`)}</dt>
+							<dd class="m-0 text-2xl font-semibold tabular-nums">{formatAmount(locale, metric, usage.totals[metric])}</dd>
+						</div>
+					{/each}
+				</dl>
+			{/if}
+		</CardContent>
+	</Card>
 
 	{#if usage}
-		<section class="glass-panel section" aria-labelledby="daily-title">
-			<h2 id="daily-title">{t('usage.daily')}</h2>
-			{#if isEmptyUsage(usage)}
-				<p>{t('usage.empty')}</p>
-			{:else}
-				<div class="table-wrap">
-					<table>
-						<thead>
-							<tr>
-								<th scope="col">{t('usage.day')}</th>
+		<Card class="min-w-0" role="region" aria-labelledby="daily-title">
+			<CardHeader>
+				<CardTitle><h2 id="daily-title" class="text-lg font-semibold">{t('usage.daily')}</h2></CardTitle>
+			</CardHeader>
+			<CardContent class="gap-4">
+				{#if isEmptyUsage(usage)}
+					<p>{t('usage.empty')}</p>
+				{:else}
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head scope="col" class="text-muted-foreground">{t('usage.day')}</Table.Head>
 								{#each USAGE_METRICS as metric (metric)}
-									<th scope="col" class="num">{t(`usage.metric.${metric}`)}</th>
+									<Table.Head scope="col" class="text-right text-muted-foreground tabular-nums">{t(`usage.metric.${metric}`)}</Table.Head>
 								{/each}
-							</tr>
-						</thead>
-						<tbody>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
 							{#each usage.daily as day (day.day)}
-								<tr>
-									<th scope="row">{formatDay(locale, day.day)}</th>
+								<Table.Row>
+									<Table.Head scope="row" class="font-normal">{formatDay(locale, day.day)}</Table.Head>
 									{#each USAGE_METRICS as metric (metric)}
-										<td class="num">{formatAmount(locale, metric, day[metric])}</td>
+										<Table.Cell class="text-right tabular-nums">{formatAmount(locale, metric, day[metric])}</Table.Cell>
 									{/each}
-								</tr>
+								</Table.Row>
 							{/each}
-						</tbody>
-					</table>
-				</div>
-			{/if}
-			<p class="note">{t('usage.note')}</p>
-		</section>
+						</Table.Body>
+					</Table.Root>
+				{/if}
+				<p class="text-sm text-muted-foreground">{t('usage.note')}</p>
+			</CardContent>
+		</Card>
 	{/if}
 </div>
-
-<style>
-	.usage-page { display: grid; gap: 1rem; width: min(56rem, 100%); margin: 0 auto; }
-	h1, h2 { margin: 0; }
-	h2 { font-size: 1.1rem; }
-	.intro, .note { margin: 0; color: var(--muted); }
-	.note { font-size: 0.85rem; }
-	.periods { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-	.section { display: grid; gap: 1rem; padding: 1.25rem; min-width: 0; }
-	.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem; margin: 0; }
-	.total { display: grid; gap: 0.2rem; padding: 0.8rem 0.9rem; border: 1px solid var(--line); border-radius: 0.625rem; background: var(--glass-inset-fill); }
-	dt { font-size: 0.85rem; color: var(--muted); }
-	dd { margin: 0; font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-	.table-wrap { overflow-x: auto; }
-	table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-	th, td { padding: 0.5rem 0.65rem; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
-	thead th { font-weight: 600; color: var(--muted); }
-	tbody th { font-weight: 500; }
-	.num { text-align: right; font-variant-numeric: tabular-nums; }
-</style>
