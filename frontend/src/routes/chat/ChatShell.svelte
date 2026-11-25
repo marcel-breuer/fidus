@@ -22,7 +22,12 @@
 	import { renderMarkdown } from '#lib/markdown.ts';
 	import { getT } from '#lib/i18n/context.ts';
 	import { messages as catalogs, type MessageKey } from '#lib/i18n/index.ts';
-	import { Alert, Button } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 
 	let { conversationId = null }: { conversationId?: string | null } = $props();
 	const t = getT();
@@ -50,7 +55,7 @@
 	let lastSubmitted = $state('');
 	let shouldFollow = true;
 	let messagesElement = $state<HTMLDivElement>();
-	let composer = $state<HTMLTextAreaElement>();
+	let composer = $state<HTMLTextAreaElement | null>(null);
 	let recording = $state(false);
 	let dictating = $state(false);
 	let dictationError = $state(false);
@@ -385,37 +390,42 @@
 </script>
 
 <svelte:head><title>{t('chat.title')} · {t('app.name')}</title></svelte:head>
-<div class="chat-layout">
-	<aside class="conversation-panel glass-chrome" aria-label={t('chat.conversations')}>
-		<div class="list-heading">
-			<h1>{t('chat.conversations')}</h1>
-			<Button variant="quiet" onclick={startNew} disabled={streaming}>{t('chat.new')}</Button>
-			<a class="memory-link" href="/chat/memories">{t('chat.memoryLink')}</a>
-			<a class="memory-link" href="/chat/audit">{t('chat.audit.link')}</a>
+{#snippet failure(message: string)}
+	<Alert variant="destructive"><AlertDescription class="text-foreground">{message}</AlertDescription></Alert>
+{/snippet}
+<div class="mx-auto grid h-[calc(100vh-3rem)] min-h-136 max-w-360 grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)] gap-3 max-[720px]:h-auto max-[720px]:min-h-[calc(100vh-3rem)] max-[720px]:grid-cols-[minmax(0,1fr)] max-[720px]:grid-rows-[auto_minmax(26rem,1fr)]">
+	<aside class="glass-chrome min-h-0 min-w-0 overflow-auto p-4 max-[720px]:max-h-56" aria-label={t('chat.conversations')}>
+		<div class="mb-3 grid gap-3">
+			<h1 class="m-0 text-[1.05rem]">{t('chat.conversations')}</h1>
+			<Button variant="outline" onclick={startNew} disabled={streaming}>{t('chat.new')}</Button>
+			<a class="text-[0.85rem]" href="/chat/memories">{t('chat.memoryLink')}</a>
+			<a class="text-[0.85rem]" href="/chat/audit">{t('chat.audit.link')}</a>
 		</div>
 		{#if loading}
-			<p class="muted">{t('common.loading')}</p>
+			<p class="m-0 text-[0.78rem] text-muted-foreground">{t('common.loading')}</p>
 		{:else if conversations.length === 0}
-			<p class="muted">{t('chat.emptyList')}</p>
+			<p class="m-0 text-[0.78rem] text-muted-foreground">{t('chat.emptyList')}</p>
 		{:else}
-			<ul>
+			<ul class="m-0 grid list-none gap-2 p-0">
 				{#each conversations as item (item.id)}
-					<li class:active={item.id === activeId}>
+					<li class="min-w-0 rounded-xl p-1.5 {item.id === activeId ? 'bg-(--glass-inset-fill)' : ''}">
 						{#if renamingId === item.id}
-							<form class="rename" onsubmit={(event) => { event.preventDefault(); void saveRename(item); }}>
-								<label class="visually-hidden" for="rename-{item.id}">{t('chat.rename')}</label>
-								<input id="rename-{item.id}" class="glass-control" bind:value={renameValue} maxlength="200" />
-								<Button type="submit" variant="quiet" disabled={busyId === item.id}>{t('chat.saveRename')}</Button>
-								<Button type="button" variant="quiet" onclick={() => renamingId = null}>{t('chat.cancelRename')}</Button>
+							<form class="grid gap-1.5" onsubmit={(event) => { event.preventDefault(); void saveRename(item); }}>
+								<Label class="sr-only" for="rename-{item.id}">{t('chat.rename')}</Label>
+								<Input id="rename-{item.id}" bind:value={renameValue} maxlength={200} />
+								<Button type="submit" variant="outline" disabled={busyId === item.id}>{t('chat.saveRename')}</Button>
+								<Button type="button" variant="outline" onclick={() => renamingId = null}>{t('chat.cancelRename')}</Button>
 							</form>
 						{:else}
-							<button class="conversation-link" aria-current={item.id === activeId ? 'page' : undefined} onclick={() => openConversation(item.id)}>
-								<span class="conversation-title">{item.title}</span>
-								<time datetime={item.updated_at}>{relativeTime(item.updated_at)}</time>
-							</button>
-							<div class="row-actions">
-								<Button variant="quiet" disabled={streaming || busyId === item.id} aria-label={t('chat.rename')} onclick={() => { renamingId = item.id; renameValue = item.title; }}>{t('chat.rename')}</Button>
-								<Button variant="quiet" disabled={streaming || busyId === item.id} aria-label={t('chat.delete')} onclick={() => void removeConversation(item)}>{t('chat.delete')}</Button>
+							<Button variant="ghost" class="h-auto min-h-11 w-full min-w-0 justify-start rounded-md p-1.5 text-left font-normal whitespace-normal" aria-current={item.id === activeId ? 'page' : undefined} onclick={() => openConversation(item.id)}>
+								<span class="grid min-w-0 gap-0.5">
+									<span class="truncate">{item.title}</span>
+									<time class="text-[0.78rem] text-muted-foreground" datetime={item.updated_at}>{relativeTime(item.updated_at)}</time>
+								</span>
+							</Button>
+							<div class="flex gap-1.5">
+								<Button variant="outline" class="px-2 text-xs" disabled={streaming || busyId === item.id} aria-label={t('chat.rename')} onclick={() => { renamingId = item.id; renameValue = item.title; }}>{t('chat.rename')}</Button>
+								<Button variant="outline" class="px-2 text-xs" disabled={streaming || busyId === item.id} aria-label={t('chat.delete')} onclick={() => void removeConversation(item)}>{t('chat.delete')}</Button>
 							</div>
 						{/if}
 					</li>
@@ -424,54 +434,54 @@
 		{/if}
 	</aside>
 
-	<section class="chat-main glass-panel" aria-label={t('chat.title')}>
+	<Card role="region" class="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-3 p-4 max-[720px]:min-h-120" aria-label={t('chat.title')}>
 		{#if loading && activeId}
-			<p class="empty-state">{t('chat.loading')}</p>
+			<p class="m-auto text-center text-muted-foreground">{t('chat.loading')}</p>
 		{:else}
-			<div class="messages" bind:this={messagesElement} onscroll={onScroll}>
+			<div class="flex min-h-0 flex-col gap-4 overflow-auto scroll-smooth p-2" bind:this={messagesElement} onscroll={onScroll}>
 				{#if messages.length === 0 && !streaming}
-					<p class="empty-state">{t('chat.emptyMessages')}</p>
+					<p class="m-auto text-center text-muted-foreground">{t('chat.emptyMessages')}</p>
 				{/if}
 				{#each messages as message (message.id)}
-					<article class="message" class:user-message={message.role === 'user'}>
-						<p class="speaker">{message.role === 'user' ? t('chat.user') : t('chat.assistant')}</p>
+					<article class="w-[min(88%,52rem)] max-[720px]:w-[min(96%,52rem)] {message.role === 'user' ? 'self-end' : 'self-start'}">
+						<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground {message.role === 'user' ? 'text-right' : ''}">{message.role === 'user' ? t('chat.user') : t('chat.assistant')}</p>
 						{#if message.content || message.role === 'user'}
-							<div class="bubble glass-inset" aria-live={message.id === 'streaming-assistant' ? 'polite' : undefined}>
+							<div class="glass-inset px-4 py-3 [overflow-wrap:anywhere] [&_code]:font-mono [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-black/8 [&_pre]:p-3" aria-live={message.id === 'streaming-assistant' ? 'polite' : undefined}>
 								{@html renderMarkdown(message.content)}
 							</div>
 						{/if}
 						{#if message.attachments?.length}
-							<ul class="message-attachments" aria-label={t('chat.attachments')}>
-								{#each message.attachments ?? [] as attachment (attachment.id)}<li>{attachment.filename}</li>{/each}
+							<ul class="mx-0 mt-1.5 mb-0 flex list-none flex-wrap gap-1.5 p-0 text-[0.8rem]" aria-label={t('chat.attachments')}>
+								{#each message.attachments ?? [] as attachment (attachment.id)}<li class="rounded-md bg-(--glass-inset-fill) px-2 py-1 [overflow-wrap:anywhere]">{attachment.filename}</li>{/each}
 							</ul>
 						{/if}
 						{#if message.role === 'assistant'}
 							{#if message.id !== 'streaming-assistant' && message.content}
-								<div class="message-actions">
-									<Button type="button" variant="quiet" disabled={speechLoadingId === message.id} onclick={() => void readAloud(message)}>{speechLoadingId === message.id ? t('chat.speechLoading') : t('chat.readAloud')}</Button>
-									{#if speechErrorId === message.id}<span class="speaker" role="status">{t('chat.speechError')}</span>{/if}
+								<div class="mt-1.5 flex items-center gap-2">
+									<Button type="button" variant="outline" disabled={speechLoadingId === message.id} onclick={() => void readAloud(message)}>{speechLoadingId === message.id ? t('chat.speechLoading') : t('chat.readAloud')}</Button>
+									{#if speechErrorId === message.id}<span class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground" role="status">{t('chat.speechError')}</span>{/if}
 								</div>
 							{/if}
 							{@const sources = parseSources(message.citations)}
 							{#if sources.length}
-								<div class="sources">
-									<p class="speaker">{t('chat.sources')}</p>
-									<ol>
+								<div class="mt-2">
+									<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground">{t('chat.sources')}</p>
+									<ol class="m-0 grid gap-1.5 pl-[1.4rem] text-[0.85rem] [overflow-wrap:anywhere]">
 										{#each sources as source (source.ref)}
 											<li value={source.ref}>
 												{#if source.type === 'web'}
 													{@const href = safeHref(source.url)}
-													<span class="kind">{t('chat.sourceWeb')}</span>
+													<span class="mr-1.5 text-muted-foreground">{t('chat.sourceWeb')}</span>
 													{#if href}<a {href} target="_blank" rel="noopener noreferrer">{source.title}</a>{:else}{source.title}{/if}
 												{:else if source.type === 'file'}
-													<span class="kind">{t('chat.sourceFile')}</span>
+													<span class="mr-1.5 text-muted-foreground">{t('chat.sourceFile')}</span>
 													<a href={fileSourceHref(source)}>{t('chat.sourceFilePassage', { name: source.file_name, position: source.position + 1, version: source.version })}</a>
-													<span class="snippet">{source.snippet}</span>
-								{:else if source.type === 'attachment'}
-									<span class="kind">{t('chat.sourceAttachment')}</span>
-									<span>{source.filename}</span>
+													<span class="block text-muted-foreground">{source.snippet}</span>
+												{:else if source.type === 'attachment'}
+													<span class="mr-1.5 text-muted-foreground">{t('chat.sourceAttachment')}</span>
+													<span>{source.filename}</span>
 												{:else}
-													<span class="kind">{t('chat.sourceConversation')}</span>
+													<span class="mr-1.5 text-muted-foreground">{t('chat.sourceConversation')}</span>
 													<a href="/chat/{source.conversation_id}">{source.snippet}</a>
 												{/if}
 											</li>
@@ -480,16 +490,16 @@
 								</div>
 							{/if}
 							{#each actions.filter((item) => item.message_id === message.id) as action (action.id)}
-								<div class="action glass-inset" role="group" aria-label={t('chat.actionTitle')}>
-									<p class="speaker">{t('chat.actionTitle')}</p>
+								<div class="glass-inset mt-2 grid gap-1.5 px-4 py-3 [&_p]:m-0" role="group" aria-label={t('chat.actionTitle')}>
+									<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground">{t('chat.actionTitle')}</p>
 									<p><strong>{toolLabel(action.tool)}</strong>: {actionSummary(action)}</p>
 									{#if action.status === 'pending'}
-										<div class="composer-actions">
+										<div class="flex justify-end gap-2">
 											<Button type="button" disabled={busyId === action.id} onclick={() => void decide(action, true)}>{t('chat.actionApprove')}</Button>
-											<Button type="button" variant="quiet" disabled={busyId === action.id} onclick={() => void decide(action, false)}>{t('chat.actionReject')}</Button>
+											<Button type="button" variant="outline" disabled={busyId === action.id} onclick={() => void decide(action, false)}>{t('chat.actionReject')}</Button>
 										</div>
 									{:else}
-										<p class="speaker" role="status">{statusLabel(action.status)}</p>
+										<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground" role="status">{statusLabel(action.status)}</p>
 									{/if}
 								</div>
 							{/each}
@@ -498,16 +508,16 @@
 				{/each}
 			</div>
 		{/if}
-		<form class="composer" onsubmit={submit}>
-			{#if failed}<Alert>{failedMessage || t('chat.error')}</Alert>{/if}
-			{#if actionFailed}<Alert>{t('chat.actionError')}</Alert>{/if}
-			{#if toolFailed && !streaming}<p class="speaker" role="status">{t('chat.toolError', { tool: toolLabel(toolFailed) })}</p>{/if}
-			{#if activeTool}<p class="speaker" role="status">{t('chat.toolRunning', { tool: toolLabel(activeTool) })}</p>{/if}
-			<label class="visually-hidden" for="chat-composer">{t('chat.composer')}</label>
-			<textarea id="chat-composer" bind:this={composer} bind:value={draft} class="glass-control" rows="3" maxlength="20000" placeholder={t('chat.placeholder')} disabled={streaming} onkeydown={composerKeydown}></textarea>
-			{#if dictationError}<Alert>{t('chat.dictationError')}</Alert>{/if}
-			<label for="chat-attachments">{t('chat.attachments')}</label>
-			<input id="chat-attachments" type="file" accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp" multiple disabled={streaming} onchange={(event) => {
+		<form class="grid gap-2" onsubmit={submit}>
+			{#if failed}{@render failure(failedMessage || t('chat.error'))}{/if}
+			{#if actionFailed}{@render failure(t('chat.actionError'))}{/if}
+			{#if toolFailed && !streaming}<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground" role="status">{t('chat.toolError', { tool: toolLabel(toolFailed) })}</p>{/if}
+			{#if activeTool}<p class="mx-1 mt-0 mb-1 text-[0.78rem] text-muted-foreground" role="status">{t('chat.toolRunning', { tool: toolLabel(activeTool) })}</p>{/if}
+			<Label class="sr-only" for="chat-composer">{t('chat.composer')}</Label>
+			<Textarea id="chat-composer" bind:ref={composer} bind:value={draft} class="field-sizing-fixed min-h-0 resize-y" rows={3} maxlength={20000} placeholder={t('chat.placeholder')} disabled={streaming} onkeydown={composerKeydown} />
+			{#if dictationError}{@render failure(t('chat.dictationError'))}{/if}
+			<Label for="chat-attachments">{t('chat.attachments')}</Label>
+			<Input id="chat-attachments" type="file" accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp" multiple disabled={streaming} onchange={(event) => {
 				const selected = Array.from(event.currentTarget.files ?? []);
 				if (attachmentFiles.length + selected.length <= 5) {
 					attachmentFiles = [...attachmentFiles, ...selected];
@@ -516,80 +526,28 @@
 				event.currentTarget.value = '';
 			}} />
 			{#if attachmentFiles.length}
-				<ul class="attachment-list" aria-label={t('chat.attachments')}>
+				<ul class="m-0 grid list-none gap-1 p-0" aria-label={t('chat.attachments')}>
 					{#each attachmentFiles as file, index (`${file.name}-${index}`)}
-						<li><span>{file.name}</span><Button type="button" variant="quiet" disabled={streaming} aria-label={t('chat.removeAttachment', { name: file.name })} onclick={() => {
+						<li class="flex min-w-0 items-center justify-between gap-2 rounded-md bg-(--glass-inset-fill) [overflow-wrap:anywhere]"><span>{file.name}</span><Button type="button" variant="outline" disabled={streaming} aria-label={t('chat.removeAttachment', { name: file.name })} onclick={() => {
 							attachmentFiles = attachmentFiles.filter((_, itemIndex) => itemIndex !== index);
 							uploadedAttachmentIds = uploadedAttachmentIds.filter((_, itemIndex) => itemIndex !== index);
 						}}>{t('chat.removeAttachmentButton')}</Button></li>
 					{/each}
 				</ul>
 			{/if}
-			<div class="composer-actions">
+			<div class="flex justify-end gap-2">
 				{#if recording}
-					<Button type="button" variant="quiet" onclick={stopDictation}>{t('chat.stopRecording')}</Button>
+					<Button type="button" variant="outline" onclick={stopDictation}>{t('chat.stopRecording')}</Button>
 				{:else}
-					<Button type="button" variant="quiet" disabled={streaming || dictating} onclick={() => void startDictation()}>{dictating ? t('chat.transcribing') : t('chat.dictate')}</Button>
+					<Button type="button" variant="outline" disabled={streaming || dictating} onclick={() => void startDictation()}>{dictating ? t('chat.transcribing') : t('chat.dictate')}</Button>
 				{/if}
-				{#if failed && lastSubmitted}<Button type="button" variant="quiet" disabled={streaming} onclick={() => void send(lastSubmitted)}>{t('chat.retry')}</Button>{/if}
+				{#if failed && lastSubmitted}<Button type="button" variant="outline" disabled={streaming} onclick={() => void send(lastSubmitted)}>{t('chat.retry')}</Button>{/if}
 				{#if streaming}
-					<Button type="button" variant="quiet" onclick={stop}>{t('chat.stop')}</Button>
+					<Button type="button" variant="outline" onclick={stop}>{t('chat.stop')}</Button>
 				{:else}
-				<Button type="submit" disabled={!draft.trim() && attachmentFiles.length === 0}>{t('chat.send')}</Button>
+					<Button type="submit" disabled={!draft.trim() && attachmentFiles.length === 0}>{t('chat.send')}</Button>
 				{/if}
 			</div>
 		</form>
-	</section>
+	</Card>
 </div>
-
-<style>
-	.chat-layout { display: grid; grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr); gap: 0.75rem; height: calc(100vh - 3rem); min-height: 34rem; max-width: 90rem; margin: 0 auto; }
-	.conversation-panel, .chat-main { min-width: 0; min-height: 0; padding: 1rem; }
-	.conversation-panel { overflow: auto; }
-	.list-heading { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
-	.list-heading h1 { margin: 0; font-size: 1.05rem; }
-	ul { display: grid; gap: 0.45rem; list-style: none; padding: 0; margin: 0; }
-	li { min-width: 0; padding: 0.4rem; border-radius: 0.85rem; }
-	li.active { background: var(--glass-inset-fill); }
-	.conversation-link { width: 100%; display: grid; gap: 0.15rem; border: 0; background: none; color: inherit; text-align: left; font: inherit; padding: 0.35rem; cursor: pointer; }
-	.conversation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	time, .muted, .speaker { color: var(--muted); font-size: 0.78rem; }
-	.row-actions { display: flex; gap: 0.3rem; }
-	.row-actions :global(button) { font-size: 0.72rem; padding: 0.25rem 0.4rem; }
-	.rename { display: grid; gap: 0.4rem; }
-	.rename input { min-width: 0; padding: 0.4rem; font: inherit; }
-	.chat-main { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 0.75rem; overflow: hidden; }
-	.messages { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem; scroll-behavior: smooth; }
-	.message { width: min(88%, 52rem); align-self: flex-start; }
-	.user-message { align-self: flex-end; }
-	.speaker { margin: 0 0 0.25rem 0.25rem; }
-	.user-message .speaker { text-align: right; margin-right: 0.25rem; }
-	.bubble { padding: 0.8rem 1rem; overflow-wrap: anywhere; }
-	.bubble :global(p:first-child) { margin-top: 0; }
-	.bubble :global(p:last-child) { margin-bottom: 0; }
-	.bubble :global(pre) { overflow: auto; padding: 0.75rem; border-radius: 0.5rem; background: rgb(0 0 0 / 0.08); }
-	.bubble :global(code) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-	.memory-link { font-size: 0.85rem; color: var(--accent-text); }
-	.sources, .action { margin-top: 0.5rem; }
-	.message-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.35rem; }
-	.sources ol { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.3rem; font-size: 0.85rem; overflow-wrap: anywhere; }
-	.sources .kind { color: var(--muted); margin-right: 0.35rem; }
-	.sources .snippet { display: block; color: var(--muted); }
-	.action { padding: 0.7rem 1rem; display: grid; gap: 0.4rem; }
-	.action p { margin: 0; }
-	.empty-state { color: var(--muted); margin: auto; text-align: center; }
-	.composer { display: grid; gap: 0.5rem; }
-	textarea { width: 100%; resize: vertical; padding: 0.7rem; font: inherit; }
-	.composer-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
-	.attachment-list { display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
-	.message-attachments { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0 0; padding: 0; list-style: none; font-size: 0.8rem; }
-	.message-attachments li { background: var(--glass-inset-fill); border-radius: 0.5rem; padding: 0.3rem 0.55rem; overflow-wrap: anywhere; }
-	.attachment-list li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; min-width: 0; overflow-wrap: anywhere; background: var(--glass-inset-fill); border-radius: 0.5rem; }
-	.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-	@media (max-width: 720px) {
-		.chat-layout { height: auto; min-height: calc(100vh - 3rem); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(26rem, 1fr); }
-		.conversation-panel { max-height: 14rem; }
-		.chat-main { min-height: 30rem; }
-		.message { width: min(96%, 52rem); }
-	}
-</style>

@@ -11,7 +11,12 @@
 		type WriteMode
 	} from '#lib/api/agent.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
+	import { RadioGroup, RadioGroupItem } from '#lib/components/ui/radio-group/index.ts';
+	import { Textarea } from '#lib/components/ui/textarea/index.ts';
 
 	const t = getT();
 	let items = $state<Memory[]>([]);
@@ -81,72 +86,56 @@
 </script>
 
 <svelte:head><title>{t('memory.title')} · {t('app.name')}</title></svelte:head>
-<section class="glass-panel memory">
-	<a class="back" href="/chat">{t('memory.back')}</a>
-	<h1>{t('memory.title')}</h1>
-	{#if error}<Alert>{error}</Alert>{/if}
+<Card class="mx-auto grid w-full max-w-208 gap-4 p-[clamp(1rem,3vw,1.5rem)]">
+	<a class="text-sm" href="/chat">{t('memory.back')}</a>
+	<h1 class="m-0">{t('memory.title')}</h1>
+	{#if error}<Alert variant="destructive"><AlertDescription class="text-foreground">{error}</AlertDescription></Alert>{/if}
 
-	<fieldset class="mode">
-		<legend>{t('memory.writeModeTitle')}</legend>
-		<p class="muted">{t('memory.writeModeHelp')}</p>
-		<label><input type="radio" name="write-mode" value="ask" checked={writeMode === 'ask'} disabled={busy || loading} onchange={() => changeMode('ask')} /> {t('memory.writeModeAsk')}</label>
-		<label><input type="radio" name="write-mode" value="allow" checked={writeMode === 'allow'} disabled={busy || loading} onchange={() => changeMode('allow')} /> {t('memory.writeModeAllow')}</label>
-	</fieldset>
+	<div class="glass-inset grid gap-2 px-4 py-3.5">
+		<p id="write-mode-label" class="m-0 font-semibold">{t('memory.writeModeTitle')}</p>
+		<p class="m-0 text-sm text-muted-foreground">{t('memory.writeModeHelp')}</p>
+		<RadioGroup value={writeMode} onValueChange={(mode) => changeMode(mode as WriteMode)} disabled={busy || loading} aria-labelledby="write-mode-label" class="gap-0">
+			<Label for="write-mode-ask" class="min-h-11 font-normal"><RadioGroupItem id="write-mode-ask" value="ask" class="border-muted-foreground" />{t('memory.writeModeAsk')}</Label>
+			<Label for="write-mode-allow" class="min-h-11 font-normal"><RadioGroupItem id="write-mode-allow" value="allow" class="border-muted-foreground" />{t('memory.writeModeAllow')}</Label>
+		</RadioGroup>
+	</div>
 
-	<p class="muted">{t('memory.intro')}</p>
-	<form class="create" onsubmit={add}>
-		<label class="field">
-			<span>{t('memory.new')}</span>
-			<textarea class="glass-control" bind:value={draft} rows="2" maxlength="1000"></textarea>
-		</label>
+	<p class="m-0 text-sm text-muted-foreground">{t('memory.intro')}</p>
+	<form class="grid justify-items-start gap-2.5" onsubmit={add}>
+		<div class="grid w-full gap-1.5">
+			<Label for="memory-new" class="font-semibold">{t('memory.new')}</Label>
+			<Textarea id="memory-new" bind:value={draft} rows={2} maxlength={1000} class="field-sizing-fixed min-h-0 resize-y" />
+		</div>
 		<Button type="submit" disabled={busy || !draft.trim()}>{t('memory.add')}</Button>
 	</form>
 
 	{#if loading}
-		<p role="status">{t('common.loading')}</p>
+		<p class="m-0" role="status">{t('common.loading')}</p>
 	{:else if items.length === 0}
-		<p class="muted">{t('memory.empty')}</p>
+		<p class="m-0 text-sm text-muted-foreground">{t('memory.empty')}</p>
 	{:else}
-		<ul>
+		<ul class="m-0 grid list-none gap-3 p-0">
 			{#each items as item (item.id)}
-				<li>
+				<li class="glass-inset grid gap-2 p-4">
 					{#if editingId === item.id}
-						<label class="field">
-							<span>{t('memory.editLabel')}</span>
-							<textarea class="glass-control" bind:value={editValue} rows="2" maxlength="1000"></textarea>
-						</label>
-						<div class="actions">
+						<div class="grid w-full gap-1.5">
+							<Label for="memory-edit-{item.id}" class="font-semibold">{t('memory.editLabel')}</Label>
+							<Textarea id="memory-edit-{item.id}" bind:value={editValue} rows={2} maxlength={1000} class="field-sizing-fixed min-h-0 resize-y" />
+						</div>
+						<div class="flex flex-wrap gap-2">
 							<Button type="button" disabled={busy || !editValue.trim()} onclick={() => save(item)}>{t('memory.save')}</Button>
-							<Button type="button" variant="quiet" onclick={() => (editingId = null)}>{t('memory.cancel')}</Button>
+							<Button type="button" variant="outline" onclick={() => (editingId = null)}>{t('memory.cancel')}</Button>
 						</div>
 					{:else}
-						<p class="content">{item.content}</p>
-						<p class="muted">{item.source === 'agent' ? t('memory.sourceAgent') : t('memory.sourceUser')}</p>
-						<div class="actions">
-							<Button type="button" variant="quiet" disabled={busy} onclick={() => { editingId = item.id; editValue = item.content; }}>{t('memory.edit')}</Button>
-							<Button type="button" variant="quiet" disabled={busy} onclick={() => remove(item)}>{t('memory.delete')}</Button>
+						<p class="m-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{item.content}</p>
+						<p class="m-0 text-sm text-muted-foreground">{item.source === 'agent' ? t('memory.sourceAgent') : t('memory.sourceUser')}</p>
+						<div class="flex flex-wrap gap-2">
+							<Button type="button" variant="outline" disabled={busy} onclick={() => { editingId = item.id; editValue = item.content; }}>{t('memory.edit')}</Button>
+							<Button type="button" variant="outline" disabled={busy} onclick={() => remove(item)}>{t('memory.delete')}</Button>
 						</div>
 					{/if}
 				</li>
 			{/each}
 		</ul>
 	{/if}
-</section>
-
-<style>
-	.memory { max-width: 52rem; margin: 0 auto; padding: clamp(1rem, 3vw, 1.5rem); display: grid; gap: 1rem; }
-	h1 { margin: 0; }
-	.back { color: var(--accent-text); font-size: 0.9rem; }
-	.muted { color: var(--muted); margin: 0; font-size: 0.9rem; }
-	.mode { display: grid; gap: 0.5rem; border: 1px solid var(--glass-rim); border-radius: 0.8rem; padding: 0.9rem 1rem; }
-	.mode legend { font-weight: 650; padding: 0 0.3rem; }
-	.mode label { display: flex; gap: 0.5rem; align-items: center; min-height: 44px; }
-	.mode input { accent-color: var(--accent); }
-	.create { display: grid; gap: 0.6rem; justify-items: start; }
-	.field { display: grid; gap: 0.35rem; font-weight: 600; width: 100%; }
-	textarea { font: inherit; color: var(--ink); padding: 0.6rem 0.7rem; resize: vertical; width: 100%; box-sizing: border-box; }
-	ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
-	li { padding: 1rem; border: 1px solid var(--glass-rim); border-radius: 0.8rem; display: grid; gap: 0.5rem; }
-	.content { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-	.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-</style>
+</Card>

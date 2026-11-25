@@ -8,7 +8,11 @@
 	import { formatDate } from '#lib/i18n/index.ts';
 	import type { MessageKey } from '#lib/i18n/index.ts';
 	import { getT } from '#lib/i18n/context.ts';
-	import { Alert, Button, TextField } from '#lib/ui/index.ts';
+	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Button } from '#lib/components/ui/button/index.ts';
+	import { Card } from '#lib/components/ui/card/index.ts';
+	import { Input } from '#lib/components/ui/input/index.ts';
+	import { Label } from '#lib/components/ui/label/index.ts';
 
 	const t = getT();
 	let memos = $state<Memo[]>([]);
@@ -183,58 +187,62 @@
 </script>
 
 <svelte:head><title>{t('audio.title')} · {t('app.name')}</title></svelte:head>
-<section class="glass-panel audio">
-	<h1>{t('audio.title')}</h1>
-	<p class="intro">{t('audio.intro')}</p>
-	<div class="tools">
-		<TextField label={t('audio.titleLabel')} bind:value={title} maxlength={255} disabled={recording || uploading !== null} />
-		<div class="capture">
+<Card class="grid gap-4 p-[clamp(1rem,3vw,1.5rem)]">
+	<h1 class="m-0">{t('audio.title')}</h1>
+	<p class="m-0 text-muted-foreground">{t('audio.intro')}</p>
+	<div class="flex flex-wrap items-end justify-between gap-4">
+		<div class="grid flex-[1_1_16rem] gap-1.5">
+			<Label for="audio-title" class="font-semibold">{t('audio.titleLabel')}</Label>
+			<Input id="audio-title" bind:value={title} maxlength={255} disabled={recording || uploading !== null} />
+		</div>
+		<div class="flex flex-wrap items-center gap-3">
 			{#if recording}
-				<Button onclick={stopRecording}>{t('audio.stop')}</Button>
-				<span class="timer" role="timer" aria-live="off">{t('audio.recording', { time: formatDuration(elapsed) })}</span>
+				<Button type="button" onclick={stopRecording}>{t('audio.stop')}</Button>
+				<span class="text-muted-foreground tabular-nums" role="timer" aria-live="off">{t('audio.recording', { time: formatDuration(elapsed) })}</span>
 			{:else}
-				<Button onclick={startRecording} disabled={!canRecord || uploading !== null}>{t('audio.record')}</Button>
+				<Button type="button" onclick={startRecording} disabled={!canRecord || uploading !== null}>{t('audio.record')}</Button>
 			{/if}
-			<label class="file-picker"><span>{t('audio.upload')}</span>
-				<input type="file" accept="audio/*,.webm,.ogg,.mp3,.m4a,.wav,.flac" onchange={selectFile} disabled={recording || uploading !== null} />
-			</label>
+			<div class="flex min-w-0 flex-wrap items-center gap-2">
+				<Label for="audio-upload" class="font-semibold">{t('audio.upload')}</Label>
+				<Input id="audio-upload" type="file" accept="audio/*,.webm,.ogg,.mp3,.m4a,.wav,.flac" onchange={selectFile} disabled={recording || uploading !== null} />
+			</div>
 		</div>
 	</div>
-	{#if !canRecord}<p class="hint">{t('audio.micUnsupported')}</p>{/if}
-	{#if error}<Alert>{error}</Alert>{/if}
+	{#if !canRecord}<p class="m-0 text-muted-foreground">{t('audio.micUnsupported')}</p>{/if}
+	{#if error}<Alert variant="destructive"><AlertDescription class="text-foreground">{error}</AlertDescription></Alert>{/if}
 	{#if uploading}
-		<p role="status">{t('audio.uploading', { name: uploading.name, progress: uploading.progress })}</p>
-		<progress max="100" value={uploading.progress} aria-label={t('audio.uploading', { name: uploading.name, progress: uploading.progress })}></progress>
+		<p class="m-0" role="status">{t('audio.uploading', { name: uploading.name, progress: uploading.progress })}</p>
+		<progress class="w-full accent-primary" max="100" value={uploading.progress} aria-label={t('audio.uploading', { name: uploading.name, progress: uploading.progress })}></progress>
 	{/if}
-	{#if loading}<p role="status">{t('audio.loading')}</p>
-	{:else if memos.length === 0}<p class="empty">{t('audio.empty')}</p>
+	{#if loading}<p class="m-0" role="status">{t('audio.loading')}</p>
+	{:else if memos.length === 0}<p class="m-0 text-muted-foreground">{t('audio.empty')}</p>
 	{:else}
-		<ul class="memos">
+		<ul class="m-0 grid list-none gap-3 p-0">
 			{#each memos as memo (memo.id)}
-				<li>
-					<div class="head">
-						<h2>{memo.title}</h2>
-						<span class="status" role="status">{statusLabel(memo)}</span>
+				<li class="glass-inset grid gap-3 p-4">
+					<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+						<h2 class="m-0 text-[1.05rem] [overflow-wrap:anywhere]">{memo.title}</h2>
+						<span class="text-muted-foreground" role="status">{statusLabel(memo)}</span>
 					</div>
-					<p class="meta">{formatDate(page.data.locale, new Date(memo.created_at))} · {formatFileSize(memo.size_bytes, page.data.locale)}</p>
-					<audio controls preload="none" src={`/api/v1/audio/memos/${encodeURIComponent(memo.id)}/audio`} aria-label={t('audio.recordingLabel', { title: memo.title })}></audio>
+					<p class="m-0 text-muted-foreground">{formatDate(page.data.locale, new Date(memo.created_at))} · {formatFileSize(memo.size_bytes, page.data.locale)}</p>
+					<audio class="w-full" controls preload="none" src={`/api/v1/audio/memos/${encodeURIComponent(memo.id)}/audio`} aria-label={t('audio.recordingLabel', { title: memo.title })}></audio>
 					{#if speech[memo.id]?.url}
-						<audio controls autoplay src={speech[memo.id].url} aria-label={t('audio.speechLabel', { title: memo.title })}></audio>
+						<audio class="w-full" controls autoplay src={speech[memo.id].url} aria-label={t('audio.speechLabel', { title: memo.title })}></audio>
 					{/if}
-					<div class="actions">
+					<div class="flex flex-wrap gap-2">
 						{#if memo.status === 'ready'}
-							<Button variant="quiet" onclick={() => readAloud(memo)} disabled={speech[memo.id] !== undefined}>
+							<Button type="button" variant="outline" onclick={() => readAloud(memo)} disabled={speech[memo.id] !== undefined}>
 								{speech[memo.id]?.state === 'loading' ? t('audio.readingAloud') : t('audio.readAloud')}
 							</Button>
 						{/if}
-						{#if needsRetry(memo)}<Button variant="quiet" onclick={() => retry(memo)}>{t('audio.retry')}</Button>{/if}
-						<Button variant="quiet" onclick={() => remove(memo)}>{t('audio.delete')}</Button>
+						{#if needsRetry(memo)}<Button type="button" variant="outline" onclick={() => retry(memo)}>{t('audio.retry')}</Button>{/if}
+						<Button type="button" variant="outline" onclick={() => remove(memo)}>{t('audio.delete')}</Button>
 					</div>
 					{#if memo.status === 'ready'}
 						<details ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadDetail(memo.id); }}>
-							<summary>{t('audio.transcript')}</summary>
+							<summary class="cursor-pointer font-semibold">{t('audio.transcript')}</summary>
 							{#if details[memo.id]}
-								<p class="transcript">{details[memo.id].transcript ?? t('audio.noTranscript')}</p>
+								<p class="mx-0 mt-3 mb-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{details[memo.id].transcript ?? t('audio.noTranscript')}</p>
 							{:else}<p role="status">{t('audio.loading')}</p>{/if}
 						</details>
 					{/if}
@@ -242,25 +250,4 @@
 			{/each}
 		</ul>
 	{/if}
-</section>
-
-<style>
-	.audio { padding: clamp(1rem, 3vw, 1.5rem); display: grid; gap: 1rem; }
-	h1, h2 { margin: 0; }
-	h2 { font-size: 1.05rem; overflow-wrap: anywhere; }
-	.intro, .hint, .meta, .empty, .status { margin: 0; color: var(--muted); }
-	.tools { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; }
-	.tools :global(.field) { flex: 1 1 16rem; }
-	.capture { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
-	.timer { font-variant-numeric: tabular-nums; color: var(--muted); }
-	.file-picker { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; font-weight: 600; }
-	.file-picker input { width: 100%; max-width: 100%; font: inherit; }
-	progress { width: 100%; accent-color: var(--accent); }
-	.memos { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
-	.memos > li { border: 1px solid var(--glass-rim); border-radius: 0.75rem; padding: 1rem; display: grid; gap: 0.75rem; }
-	.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.5rem 1rem; }
-	audio { width: 100%; }
-	.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-	details summary { cursor: pointer; font-weight: 600; }
-	.transcript { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0.75rem 0 0; }
-</style>
+</Card>
