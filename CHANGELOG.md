@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/marcel-breuer/fidus/compare/v1.3.0...v1.4.0) (2026-11-26)
+
+
+### Features
+
+* **frontend:** migrate chat and audio to shadcn-svelte ([e4ba1d1](https://github.com/marcel-breuer/fidus/commit/e4ba1d1f99ee7a6d8afe4d2ac2028bb8f927df7b))
+* **frontend:** migrate chat and audio to shadcn-svelte ([ea3e67a](https://github.com/marcel-breuer/fidus/commit/ea3e67a79d61c893179641472ce5068dc1b329c8)), closes [#80](https://github.com/marcel-breuer/fidus/issues/80)
+* **frontend:** migrate files, tasks and module pages to shadcn-svelte ([a11cec4](https://github.com/marcel-breuer/fidus/commit/a11cec4a0824c59695b800ad42e92761d62842ba))
+* **frontend:** migrate files, tasks and module pages to shadcn-svelte ([de26111](https://github.com/marcel-breuer/fidus/commit/de26111ff19b458a09c53bff42cd129047be5cb9)), closes [#80](https://github.com/marcel-breuer/fidus/issues/80)
+* **frontend:** migrate settings, admin and auth pages to shadcn-svelte ([ac7d010](https://github.com/marcel-breuer/fidus/commit/ac7d0106c1cfc6ec9ddfae8c828100f37b763db6))
+* **frontend:** migrate settings, admin and auth pages to shadcn-svelte ([bccdf11](https://github.com/marcel-breuer/fidus/commit/bccdf11b78778d2476c6c4617e4fb65c67de744e)), closes [#80](https://github.com/marcel-breuer/fidus/issues/80)
+* **frontend:** shadcn-svelte foundation and glass theme ([2b5447d](https://github.com/marcel-breuer/fidus/commit/2b5447d21f21c8bfff0529ee18bffc0929d53f46))
+* **frontend:** shadcn-svelte foundation and glass theme ([919528d](https://github.com/marcel-breuer/fidus/commit/919528d943f29c05490ee12b2273781370b765e4)), closes [#80](https://github.com/marcel-breuer/fidus/issues/80)
+
 ## [1.3.0](https://github.com/marcel-breuer/fidus/compare/v1.2.0...v1.3.0) (2026-11-24)
 
 
