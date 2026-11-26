@@ -10,6 +10,9 @@
 	import { formatDate } from '#lib/i18n/index.ts';
 	import { getT } from '#lib/i18n/context.ts';
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#lib/components/ui/collapsible/index.ts';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import { Progress } from '#lib/components/ui/progress/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Card } from '#lib/components/ui/card/index.ts';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
@@ -229,7 +232,7 @@
 					{#if upload.state === 'uploading'}{t('files.uploading', { name: upload.name, progress: upload.progress })}
 					{:else if upload.state === 'done'}{t('files.uploaded', { name: upload.name })}
 					{:else}{t('files.uploadFailed', { name: upload.name, reason: upload.reason ?? t('files.error') })}{/if}
-					{#if upload.state === 'uploading'}<progress class="w-full accent-primary" max="100" value={upload.progress} aria-label={t('files.uploading', { name: upload.name, progress: upload.progress })}></progress>{/if}
+					{#if upload.state === 'uploading'}<Progress value={upload.progress} max={100} aria-label={t('files.uploading', { name: upload.name, progress: upload.progress })} />{/if}
 				</li>
 			{/each}
 		</ul>
@@ -262,7 +265,7 @@
 								{#if item.kind === 'file'}
 									{#if documentStates[item.id]}<span class="my-1 text-muted-foreground [overflow-wrap:anywhere]" role="status">{statusLabel(documentStates[item.id])}</span>{#if documentStates[item.id].status === 'failed'}<Button type="button" variant="outline" onclick={() => reindex(item)}>{t('files.reindex')}</Button>{/if}{/if}
 									<Button variant="outline" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download`}>{t('files.download')}</Button>
-									<details class="self-center" ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadVersions(item); }}><summary class="min-h-11 cursor-pointer leading-[2.75rem]">{t('files.versions')}</summary>{#if versions[item.id]}<ol class="min-w-[min(18rem,75vw)] pl-5">{#each versions[item.id] as version (version.id)}<li class="grid gap-1 py-1"><a class="text-primary underline" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download?version=${version.version}`}>{t('files.versions')} {version.version}</a><span class="text-muted-foreground">{formatFileSize(version.size_bytes, page.data.locale)} · {formatDate(page.data.locale, new Date(version.created_at))}</span></li>{/each}</ol>{/if}</details>
+									<Collapsible class="self-center" onOpenChange={(open) => { if (open) void loadVersions(item); }}><CollapsibleTrigger class="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-md bg-transparent p-0 text-left text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&[data-state=open]>svg]:rotate-90"><ChevronRightIcon class="size-4 shrink-0 transition-transform" aria-hidden="true" />{t('files.versions')}</CollapsibleTrigger><CollapsibleContent>{#if versions[item.id]}<ol class="min-w-[min(18rem,75vw)] pl-5">{#each versions[item.id] as version (version.id)}<li class="grid gap-1 py-1"><a class="text-primary underline" href={`/api/v1/files/nodes/${encodeURIComponent(item.id)}/download?version=${version.version}`}>{t('files.versions')} {version.version}</a><span class="text-muted-foreground">{formatFileSize(version.size_bytes, page.data.locale)} · {formatDate(page.data.locale, new Date(version.created_at))}</span></li>{/each}</ol>{/if}</CollapsibleContent></Collapsible>
 								{/if}
 								<Button type="button" variant="outline" onclick={() => pendingDelete = item}>{t('files.delete')}</Button>
 							</div>

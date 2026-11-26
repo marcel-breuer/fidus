@@ -9,6 +9,9 @@
 	import type { MessageKey } from '#lib/i18n/index.ts';
 	import { getT } from '#lib/i18n/context.ts';
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
+	import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '#lib/components/ui/collapsible/index.ts';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import { Progress } from '#lib/components/ui/progress/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import ConfirmDialog from '#lib/components/app/ConfirmDialog.svelte';
 	import { Card } from '#lib/components/ui/card/index.ts';
@@ -213,7 +216,7 @@
 	{#if error}<Alert variant="destructive"><AlertDescription class="text-foreground">{error}</AlertDescription></Alert>{/if}
 	{#if uploading}
 		<p class="m-0" role="status">{t('audio.uploading', { name: uploading.name, progress: uploading.progress })}</p>
-		<progress class="w-full accent-primary" max="100" value={uploading.progress} aria-label={t('audio.uploading', { name: uploading.name, progress: uploading.progress })}></progress>
+		<Progress value={uploading.progress} max={100} aria-label={t('audio.uploading', { name: uploading.name, progress: uploading.progress })} />
 	{/if}
 	{#if loading}<p class="m-0" role="status">{t('audio.loading')}</p>
 	{:else if memos.length === 0}<p class="m-0 text-muted-foreground">{t('audio.empty')}</p>
@@ -240,12 +243,14 @@
 						<Button type="button" variant="outline" onclick={() => pendingDelete = memo}>{t('audio.delete')}</Button>
 					</div>
 					{#if memo.status === 'ready'}
-						<details ontoggle={(event) => { if ((event.currentTarget as HTMLDetailsElement).open) void loadDetail(memo.id); }}>
-							<summary class="min-h-11 cursor-pointer font-semibold leading-[2.75rem]">{t('audio.transcript')}</summary>
-							{#if details[memo.id]}
-								<p class="mx-0 mt-3 mb-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{details[memo.id].transcript ?? t('audio.noTranscript')}</p>
-							{:else}<p role="status">{t('audio.loading')}</p>{/if}
-						</details>
+						<Collapsible onOpenChange={(open) => { if (open) void loadDetail(memo.id); }}>
+							<CollapsibleTrigger class="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-md bg-transparent p-0 text-left text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&[data-state=open]>svg]:rotate-90 font-semibold"><ChevronRightIcon class="size-4 shrink-0 transition-transform" aria-hidden="true" />{t('audio.transcript')}</CollapsibleTrigger>
+							<CollapsibleContent>
+								{#if details[memo.id]}
+									<p class="mx-0 mt-3 mb-0 whitespace-pre-wrap [overflow-wrap:anywhere]">{details[memo.id].transcript ?? t('audio.noTranscript')}</p>
+								{:else}<p role="status">{t('audio.loading')}</p>{/if}
+							</CollapsibleContent>
+						</Collapsible>
 					{/if}
 				</li>
 			{/each}
